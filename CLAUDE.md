@@ -53,6 +53,8 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
 - Animate inside the single `tick()` loop; don't add extra `requestAnimationFrame` loops in the scene.
 - Keep performance in mind: instanced meshes for repeated objects, only the moon light casts shadows, pixel ratio capped at 1.75.
 - Adding a new section means: a builder in `scene.js`, a `hotspot(...)` call, a `pages[key]` entry and a `navItems` entry in `main.js`, and content in `data.js`.
+- In-world labels are short plain words ("Explore", "Projects", "Contact"), not the object name.
+- Only the current area is rendered and animated (`scene.children` visibility is toggled in `setArea`); inside, the camera is a first-person look-around (target just in front of it).
 - Must work on mobile (≤640px: the panel becomes a bottom sheet).
 - 3D models from the web must be free to use (CC0 or CC-BY, with credit added to the README) and saved as `.glb` in `public/models/`.
 

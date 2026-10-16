@@ -7,7 +7,8 @@ const HOME = { pos: [13, 7.5, 15], target: [0, 1.2, 0] };
 // The cabin interior lives far away from the clearing; we teleport the camera there.
 const ROOM = new THREE.Vector3(200, 0, 0);
 const at = (x, y, z) => [ROOM.x + x, ROOM.y + y, ROOM.z + z];
-const ROOM_HOME = { pos: at(-0.6, 1.75, 2.6), target: at(0, 1.25, -0.8) };
+// Inside, you stand in one spot and drag to look around (target sits just in front of the camera).
+const ROOM_HOME = { pos: at(0.3, 1.65, 2.3), target: at(0.3, 1.58, 2.0) };
 
 // Palette — muted, warm, dusk.
 const C = {
@@ -129,30 +130,30 @@ export function createScene(canvas, { onPick }) {
   // Cabin (About)
   const cabin = buildCabin();
   cabin.position.set(0, 0, 0);
-  hotspot('cabin', 'The cabin — step inside', cabin, 4.6, { pos: [2.6, 2.4, 8.2], target: [0, 1.7, 1.4] });
+  hotspot('cabin', 'Explore', cabin, 4.6, { pos: [2.6, 2.4, 8.2], target: [0, 1.7, 1.4] });
 
   // Campfire (Skills)
   const fire = buildCampfire();
   fire.group.position.set(4.6, 0, 4.2);
-  hotspot('skills', 'Campfire — what I build with', fire.group, 1.8, { pos: [7.3, 2.4, 7.0], target: [4.6, 0.5, 4.2] });
+  hotspot('skills', 'Skills', fire.group, 1.8, { pos: [7.3, 2.4, 7.0], target: [4.6, 0.5, 4.2] });
 
   // Woodshed (DevOps)
   const shed = buildShed();
   shed.group.position.set(5.6, 0, -2.4);
   shed.group.rotation.y = -0.5;
-  hotspot('workshop', 'The workshop — DevOps & cloud', shed.group, 3.2, { pos: [3.5, 2.1, 1.6], target: [5.6, 1.0, -2.4] });
+  hotspot('workshop', 'DevOps & cloud', shed.group, 3.2, { pos: [3.5, 2.1, 1.6], target: [5.6, 1.0, -2.4] });
 
   // Signpost (Projects)
   const sign = buildSignpost();
   sign.position.set(-3.6, 0, 4.6);
   sign.rotation.y = 0.3;
-  hotspot('projects', 'Signpost — projects', sign, 2.9, { pos: [-2.4, 2.0, 8.0], target: [-3.6, 1.7, 4.6] });
+  hotspot('projects', 'Projects', sign, 2.9, { pos: [-2.4, 2.0, 8.0], target: [-3.6, 1.7, 4.6] });
 
   // Mailbox (Contact)
   const mail = buildMailbox();
   mail.position.set(1.4, 0, 7.6);
   mail.rotation.y = -0.4;
-  hotspot('contact', 'Mailbox — say hello', mail, 2, { pos: [2.5, 1.7, 9.9], target: [1.4, 1.25, 7.6] });
+  hotspot('contact', 'Contact', mail, 2, { pos: [2.5, 1.7, 9.9], target: [1.4, 1.25, 7.6] });
 
   // ── Cabin interior ───────────────────────────────────────────
   const room = buildRoom();
@@ -163,10 +164,10 @@ export function createScene(canvas, { onPick }) {
     room.group.add(obj);
     hotspot(key, label, obj, labelY, { pos: at(...pos), target: at(...target) }, 'inside');
   };
-  inside('chair', 'Armchair — about me', room.chair, 1.5, [2.9, 1.55, 1.3], [1.3, 0.75, -0.8]);
-  inside('bookshelf', 'Bookshelf — always learning', room.shelf, 2.7, [-1.4, 1.55, -0.4], [-3, 1.3, -3.1]);
-  inside('fireplace', 'Fireplace — my journey', room.fireplace, 2.0, [0.3, 1.35, -0.3], [0, 0.85, -3.1]);
-  inside('painting', 'The deer painting — life outside code', room.painting, 0.75, [1.6, 1.85, -0.4], [4.4, 1.85, -0.5]);
+  inside('chair', 'About me', room.chair, 1.5, [2.9, 1.55, 1.3], [1.3, 0.75, -0.8]);
+  inside('bookshelf', 'Learning', room.shelf, 2.7, [-1.4, 1.55, -0.4], [-3, 1.3, -3.1]);
+  inside('fireplace', 'My journey', room.fireplace, 2.0, [0.3, 1.35, -0.3], [0, 0.85, -3.1]);
+  inside('painting', 'Life outside code', room.painting, 0.75, [1.6, 1.85, -0.4], [4.4, 1.85, -0.5]);
 
   // ── Trees ─────────────────────────────────────────────────────
   const trees = [];
@@ -297,23 +298,35 @@ export function createScene(canvas, { onPick }) {
     focused = hotspots.find((h) => h.key === key && h.area === area) ?? null;
     controls.autoRotate = !focused && area === 'outside';
     controls.enabled = !focused;
-    flyTo(focused ? focused.view : homeOf(), focused ? 1 : 0);
+    flyTo(focused ? focused.view : homeOf(), focused ? 1 : 0, area === 'inside' ? 1.2 : 1.6);
   }
 
   // Teleport between the clearing and the cabin interior (call while the screen is faded out).
+  // Walk toward the cabin door while the screen fades out.
+  function approach() {
+    controls.autoRotate = false;
+    flyTo({ pos: [0, 1.7, 5.2], target: [0, 1.4, 1.6] }, 0, 0.9);
+  }
+
   function setArea(next) {
     area = next;
     focused = null;
     tween?.kill();
     frame.shift = 0;
     const home = homeOf();
-    camera.position.set(...home.pos);
-    controls.target.set(...home.target);
     const inRoom = area === 'inside';
     Object.assign(controls, inRoom
-      ? { minDistance: 1.2, maxDistance: 3.4, minPolarAngle: Math.PI * 0.32, maxPolarAngle: Math.PI * 0.56, autoRotate: false, enabled: true }
-      : { minDistance: 6, maxDistance: 28, minPolarAngle: Math.PI * 0.18, maxPolarAngle: Math.PI * 0.46, autoRotate: true, enabled: true });
-    room.group.visible = inRoom;
+      ? { minDistance: 0.05, maxDistance: 0.6, minPolarAngle: Math.PI * 0.36, maxPolarAngle: Math.PI * 0.6, minAzimuthAngle: -1.25, maxAzimuthAngle: 1.25, enableZoom: false, rotateSpeed: 0.3, dampingFactor: 0.06, autoRotate: false, enabled: true }
+      : { minDistance: 6, maxDistance: 28, minPolarAngle: Math.PI * 0.18, maxPolarAngle: Math.PI * 0.46, minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity, enableZoom: true, rotateSpeed: 1, dampingFactor: 0.05, autoRotate: true, enabled: true });
+
+    // only draw the world you're in — the forest isn't rendered at all while inside
+    scene.children.forEach((c) => { if (c !== hemi) c.visible = c === room.group ? inRoom : !inRoom; });
+
+    // arrive with a short step forward instead of a hard cut
+    const back = inRoom ? [0, 0.05, 1.1] : [3, 1.5, 4];
+    camera.position.set(home.pos[0] + back[0], home.pos[1] + back[1], home.pos[2] + back[2]);
+    controls.target.set(home.target[0] + back[0], home.target[1] + back[1], home.target[2] + back[2]);
+    flyTo(home, 0, 1.4);
     moonLight.intensity = inRoom ? 0 : 1.1;
     hemi.intensity = inRoom ? 0.35 : 0.9;
     hemi.color.setHex(inRoom ? 0xffd2a0 : 0x8090c0);
@@ -346,48 +359,50 @@ export function createScene(canvas, { onPick }) {
       labelPositions[h.key] = { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, visible: v.z < 1 && h.area === area && !(area === 'inside' && h.key === focused?.key), hot: h === hovered };
     });
 
-    // fire flicker
     const f = 1 + Math.sin(t * 13) * 0.08 + Math.sin(t * 7.3) * 0.1 + (Math.random() - 0.5) * 0.08;
-    fire.light.intensity = 9 * f;
-    fire.flames.forEach((fl, i) => {
-      fl.scale.y = fl.userData.s * (0.85 + Math.sin(t * (9 + i * 2) + i) * 0.18);
-      fl.rotation.y += dt * (1 + i);
-    });
-    fire.embers.forEach((e) => {
-      e.userData.t = (e.userData.t + dt * e.userData.s) % 1;
-      const k = e.userData.t;
-      e.position.set(Math.sin(k * 8 + e.userData.p) * 0.2, 0.3 + k * 2.2, Math.cos(k * 6 + e.userData.p) * 0.2);
-      e.material.opacity = 1 - k;
-    });
 
-    room.light.intensity = 7 * f;
-    room.flames.forEach((fl, i) => { fl.scale.y = 0.85 + Math.sin(t * (8 + i * 2.3) + i) * 0.2; fl.rotation.y += dt * (1 + i); });
-    room.candles.forEach((c, i) => c.scale.setScalar(0.9 + Math.sin(t * (11 + i)) * 0.1));
+    // only animate the world you're in
+    if (area === 'inside') {
+      room.light.intensity = 7 * f;
+      room.flames.forEach((fl, i) => { fl.scale.y = 0.85 + Math.sin(t * (8 + i * 2.3) + i) * 0.2; fl.rotation.y += dt * (1 + i); });
+      room.candles.forEach((c, i) => c.scale.setScalar(0.9 + Math.sin(t * (11 + i)) * 0.1));
+    } else {
+      fire.light.intensity = 9 * f;
+      fire.flames.forEach((fl, i) => {
+        fl.scale.y = fl.userData.s * (0.85 + Math.sin(t * (9 + i * 2) + i) * 0.18);
+        fl.rotation.y += dt * (1 + i);
+      });
+      fire.embers.forEach((e) => {
+        e.userData.t = (e.userData.t + dt * e.userData.s) % 1;
+        const k = e.userData.t;
+        e.position.set(Math.sin(k * 8 + e.userData.p) * 0.2, 0.3 + k * 2.2, Math.cos(k * 6 + e.userData.p) * 0.2);
+        e.material.opacity = 1 - k;
+      });
 
-    shed.leds.forEach((l, i) => { l.material.color.setHex(Math.sin(t * (2 + i * 1.7) + i) > -0.2 ? l.userData.on : 0x112211); });
+      shed.leds.forEach((l, i) => { l.material.color.setHex(Math.sin(t * (2 + i * 1.7) + i) > -0.2 ? l.userData.on : 0x112211); });
 
-    // smoke
-    smoke.forEach((s) => {
-      s.userData.t = (s.userData.t + dt * 0.12) % 1;
-      const k = s.userData.t;
-      s.position.set(chimneyTop.x + Math.sin(k * 4 + t * 0.3) * 0.4 + k * 1.2, chimneyTop.y + k * 4, chimneyTop.z - k * 0.6);
-      s.scale.setScalar(0.4 + k * 1.6);
-      s.material.opacity = 0.35 * Math.sin(k * Math.PI);
-    });
+      smoke.forEach((s) => {
+        s.userData.t = (s.userData.t + dt * 0.12) % 1;
+        const k = s.userData.t;
+        s.position.set(chimneyTop.x + Math.sin(k * 4 + t * 0.3) * 0.4 + k * 1.2, chimneyTop.y + k * 4, chimneyTop.z - k * 0.6);
+        s.scale.setScalar(0.4 + k * 1.6);
+        s.material.opacity = 0.35 * Math.sin(k * Math.PI);
+      });
 
-    // fireflies
-    ffBase.forEach((b, i) => {
-      ffPos[i * 3] = b.x + Math.sin(t * b.s + b.p) * 0.8;
-      ffPos[i * 3 + 1] = b.y + Math.sin(t * b.s * 1.7 + b.p) * 0.4;
-      ffPos[i * 3 + 2] = b.z + Math.cos(t * b.s * 0.8 + b.p) * 0.8;
-    });
-    ffGeo.attributes.position.needsUpdate = true;
-    fireflies.material.opacity = 0.7 + Math.sin(t * 2) * 0.3;
+      ffBase.forEach((b, i) => {
+        ffPos[i * 3] = b.x + Math.sin(t * b.s + b.p) * 0.8;
+        ffPos[i * 3 + 1] = b.y + Math.sin(t * b.s * 1.7 + b.p) * 0.4;
+        ffPos[i * 3 + 2] = b.z + Math.cos(t * b.s * 0.8 + b.p) * 0.8;
+      });
+      ffGeo.attributes.position.needsUpdate = true;
+      fireflies.material.opacity = 0.7 + Math.sin(t * 2) * 0.3;
+    }
 
     // gentle "breathing" parallax while focused so the close-up doesn't feel frozen
     if (focused && !tween?.isActive()) {
-      camera.position.x += (THREE.MathUtils.clamp(mouse.x, -1, 1) * 0.25 + focused.view.pos[0] - camera.position.x) * 0.03;
-      camera.position.y += (THREE.MathUtils.clamp(mouse.y, -1, 1) * 0.15 + focused.view.pos[1] - camera.position.y) * 0.03;
+      const amp = area === 'inside' ? 0.4 : 1;
+      camera.position.x += (THREE.MathUtils.clamp(mouse.x, -1, 1) * 0.25 * amp + focused.view.pos[0] - camera.position.x) * 0.03;
+      camera.position.y += (THREE.MathUtils.clamp(mouse.y, -1, 1) * 0.15 * amp + focused.view.pos[1] - camera.position.y) * 0.03;
     }
 
     controls.update();
@@ -403,7 +418,7 @@ export function createScene(canvas, { onPick }) {
   });
 
   tick();
-  return { focus, setArea, hotspots, labelPositions, get area() { return area; } };
+  return { focus, setArea, approach, hotspots, labelPositions, get area() { return area; } };
 }
 
 // ── Builders ────────────────────────────────────────────────────

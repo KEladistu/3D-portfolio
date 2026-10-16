@@ -76,6 +76,7 @@ function goTo(area, then) {
   if (busy) return;
   if (world.area === area) return then?.();
   busy = true;
+  if (area === 'inside') world.approach();
   document.body.classList.remove('reading');
   document.body.classList.add('fading');
   setTimeout(() => {
