@@ -1,5 +1,5 @@
 import './style.css';
-import { profile, about, skills, workshop, projects } from './data.js';
+import { profile, about, learning, journey, outside, skills, workshop, projects } from './data.js';
 import { createScene } from './scene.js';
 import { createAmbience } from './audio.js';
 
@@ -12,12 +12,28 @@ const tags = (items) => `<div class="tags">${items.map((i) => `<span>${i}</span>
 const groups = (list) => list.map((g) => `<h3>${g.group}</h3>${tags(g.items)}`).join('');
 
 const pages = {
-  about: () => `
-    <p class="kicker">The cabin</p>
+  chair: () => `
+    <p class="kicker">The armchair</p>
     <h2>About me</h2>
     ${about.map((p) => `<p>${p}</p>`).join('')}
     <hr />
     <p><strong>${profile.role}</strong><br />${profile.location}</p>`,
+  bookshelf: () => `
+    <p class="kicker">The bookshelf</p>
+    <h2>Always learning</h2>
+    <p>${learning.intro}</p>
+    <h3>On the shelf</h3>${tags(learning.reading)}
+    <h3>Certifications</h3>${tags(learning.certs)}
+    <h3>Currently exploring</h3>${tags(learning.now)}`,
+  fireplace: () => `
+    <p class="kicker">By the fireplace</p>
+    <h2>My journey</h2>
+    ${journey.map((j) => `<div class="project"><p class="kicker">${j.year}</p><h3>${j.title}</h3><p>${j.text}</p></div>`).join('')}`,
+  painting: () => `
+    <p class="kicker">The deer painting</p>
+    <h2>Life outside code</h2>
+    <p>${outside.intro}</p>
+    <h3>Things I love</h3>${tags(outside.hobbies)}`,
   skills: () => `
     <p class="kicker">By the fire</p>
     <h2>What I build with</h2>
@@ -52,12 +68,35 @@ const pages = {
 
 const world = createScene($('#webgl'), { onPick: open });
 
+const areaOf = (key) => world.hotspots.find((h) => h.key === key)?.area;
+let busy = false;
+
+// Fade to black, move the camera between the clearing and the cabin, fade back in.
+function goTo(area, then) {
+  if (busy) return;
+  if (world.area === area) return then?.();
+  busy = true;
+  document.body.classList.remove('reading');
+  document.body.classList.add('fading');
+  setTimeout(() => {
+    world.setArea(area);
+    document.body.classList.toggle('inside', area === 'inside');
+    $('.hint').textContent = area === 'inside' ? 'Look around the cabin · click things to explore' : 'Drag to look around · click things to explore';
+    document.body.classList.remove('fading');
+    busy = false;
+    setTimeout(() => then?.(), 350);
+  }, 650);
+}
+
 function open(key) {
+  if (key === 'cabin') return goTo('inside');
   if (!pages[key]) return close();
-  $('#panel-body').innerHTML = pages[key]();
-  $('#panel').scrollTop = 0;
-  document.body.classList.add('reading');
-  world.focus(key);
+  goTo(areaOf(key), () => {
+    $('#panel-body').innerHTML = pages[key]();
+    $('#panel').scrollTop = 0;
+    document.body.classList.add('reading');
+    world.focus(key);
+  });
 }
 function close() {
   document.body.classList.remove('reading');
@@ -65,14 +104,18 @@ function close() {
 }
 
 // nav
-const navItems = [['about', 'About'], ['skills', 'Skills'], ['workshop', 'DevOps'], ['projects', 'Projects'], ['contact', 'Contact']];
+const navItems = [['chair', 'About'], ['skills', 'Skills'], ['workshop', 'DevOps'], ['projects', 'Projects'], ['contact', 'Contact']];
 $('#nav').innerHTML = navItems.map(([k, l]) => `<button data-go="${k}">${l}</button>`).join('');
 document.addEventListener('click', (e) => {
   const go = e.target.closest('[data-go]')?.dataset.go;
-  if (go) go === 'home' ? close() : open(go);
+  if (go) go === 'home' ? goTo('outside', close) : open(go);
 });
 $('#close').onclick = close;
-addEventListener('keydown', (e) => e.key === 'Escape' && close());
+$('#exit').onclick = () => goTo('outside');
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  document.body.classList.contains('reading') || world.area === 'outside' ? close() : goTo('outside');
+});
 
 // in-world labels
 const labelEls = {};

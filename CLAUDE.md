@@ -8,11 +8,20 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
 
 | Object | Section key | Content |
 |---|---|---|
-| Cabin | `about` | About me |
+| Cabin | `cabin` | Fades into the cabin interior (no panel) |
 | Campfire | `skills` | Frontend / backend / data skills |
 | Woodshed (with a tiny server rack) | `workshop` | DevOps & cloud tooling |
 | Signpost | `projects` | Projects |
 | Mailbox | `contact` | Contact links |
+
+**Inside the cabin** (area `inside`; the room is built at `ROOM` = x 200, far from the clearing, and the camera teleports there behind a fade). A "Step outside" button and Esc return to the clearing.
+
+| Object | Section key | Content |
+|---|---|---|
+| Armchair | `chair` | About me (nav "About") |
+| Bookshelf | `bookshelf` | Books, certifications, currently learning |
+| Fireplace | `fireplace` | Journey timeline |
+| Deer painting | `painting` | Hobbies / life outside code |
 
 **Design direction: cozy, warm, hand-crafted. NOT flashy or "AI-looking".** No neon, glows, gradient text, glassmorphism or bloom. Prefer muted natural colors, flat-shaded low-poly geometry, serif headings (Fraunces) and paper-like UI.
 
@@ -24,10 +33,12 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
 
 ## Structure
 
-- `src/data.js`: **all personal content** (profile, about, skills, workshop, projects). Edit content here, never hard-code it elsewhere.
+- `src/data.js`: **all personal content** (profile, about, learning, journey, outside, skills, workshop, projects). Edit content here, never hard-code it elsewhere.
 - `src/scene.js`: three.js scene.
   - `createScene(canvas, { onPick })` returns `{ focus, hotspots, labelPositions }`.
-  - `hotspot(key, label, group, labelY, view)` registers a clickable object. `view = { pos, target }` is the close-up camera shot.
+  - `hotspot(key, label, group, labelY, view, area)` registers a clickable object. `view = { pos, target }` is the close-up camera shot (world coords; use `at(x, y, z)` for room-local coords). `area` is `'outside'` or `'inside'`.
+  - `setArea(area)` teleports between the clearing and the interior; `main.js` calls it via `goTo(area, then)` behind the `#fade` overlay.
+  - `buildRoom()` builds the interior (logs, fireplace, bookshelf, armchair, painting via `deerTexture()`).
   - Builders at the bottom of the file: `buildCabin`, `buildCampfire`, `buildShed`, `buildSignpost`, `buildMailbox`.
   - The color palette lives in the `C` object at the top.
   - When a panel is open, `applyViewOffset()` shifts the camera frustum so the focused object isn't covered by the panel (right side on desktop, bottom on mobile).
@@ -64,7 +75,8 @@ Check items off as they're completed.
 - [ ] UI follows the theme (label and button colors). Remember the choice in `localStorage` and default to `prefers-color-scheme`.
 
 ### Scene & interaction
-- [ ] Walk inside the cabin: clicking the door moves the camera to a desk with a monitor showing the About section.
+- [x] Walk inside the cabin: cozy interior with armchair, bookshelf, fireplace and deer painting.
+- [ ] Inside the cabin: a desk with a monitor showing GitHub activity; window that shows the real outdoor scene.
 - [ ] Signpost: each plank is its own project and clicking one zooms in on it.
 - [ ] Mailbox: the flag lifts and a letter slides out with a small contact form.
 - [ ] Ambient life: a cat on the porch, a clickable owl as an easter egg, a few birds in the morning.

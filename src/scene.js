@@ -4,6 +4,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import gsap from 'gsap';
 
 const HOME = { pos: [13, 7.5, 15], target: [0, 1.2, 0] };
+// The cabin interior lives far away from the clearing; we teleport the camera there.
+const ROOM = new THREE.Vector3(200, 0, 0);
+const at = (x, y, z) => [ROOM.x + x, ROOM.y + y, ROOM.z + z];
+const ROOM_HOME = { pos: at(-0.6, 1.75, 2.6), target: at(0, 1.25, -0.8) };
 
 // Palette — muted, warm, dusk.
 const C = {
@@ -74,7 +78,8 @@ export function createScene(canvas, { onPick }) {
   scene.add(moon);
 
   // ── Lights ────────────────────────────────────────────────────
-  scene.add(new THREE.HemisphereLight(0x8090c0, 0x2a2018, 0.9));
+  const hemi = new THREE.HemisphereLight(0x8090c0, 0x2a2018, 0.9);
+  scene.add(hemi);
   const moonLight = new THREE.DirectionalLight(0xb8c4ff, 1.1);
   moonLight.position.set(-14, 20, -10);
   moonLight.castShadow = true;
@@ -113,18 +118,18 @@ export function createScene(canvas, { onPick }) {
 
   // ── Hotspots ──────────────────────────────────────────────────
   const hotspots = [];
-  function hotspot(key, label, group, labelY, view) {
+  function hotspot(key, label, group, labelY, view, area = 'outside') {
     group.userData.key = key;
-    scene.add(group);
+    if (!group.parent) scene.add(group);
     const mats = new Set();
     group.traverse((o) => o.isMesh && o.material.emissive && mats.add(o.material));
-    hotspots.push({ key, label, group, mats: [...mats], anchor: new THREE.Vector3(0, labelY, 0), view, hover: 0, baseY: group.position.y });
+    hotspots.push({ key, label, group, mats: [...mats], anchor: new THREE.Vector3(0, labelY, 0), view, area, hover: 0, baseY: group.position.y });
   }
 
   // Cabin (About)
   const cabin = buildCabin();
   cabin.position.set(0, 0, 0);
-  hotspot('about', 'The cabin — about me', cabin, 4.6, { pos: [2.6, 2.4, 8.2], target: [0, 1.7, 1.4] });
+  hotspot('cabin', 'The cabin — step inside', cabin, 4.6, { pos: [2.6, 2.4, 8.2], target: [0, 1.7, 1.4] });
 
   // Campfire (Skills)
   const fire = buildCampfire();
@@ -148,6 +153,20 @@ export function createScene(canvas, { onPick }) {
   mail.position.set(1.4, 0, 7.6);
   mail.rotation.y = -0.4;
   hotspot('contact', 'Mailbox — say hello', mail, 2, { pos: [2.5, 1.7, 9.9], target: [1.4, 1.25, 7.6] });
+
+  // ── Cabin interior ───────────────────────────────────────────
+  const room = buildRoom();
+  room.group.position.copy(ROOM);
+  room.group.visible = false;
+  scene.add(room.group);
+  const inside = (key, label, obj, labelY, pos, target) => {
+    room.group.add(obj);
+    hotspot(key, label, obj, labelY, { pos: at(...pos), target: at(...target) }, 'inside');
+  };
+  inside('chair', 'Armchair — about me', room.chair, 1.5, [2.9, 1.55, 1.3], [1.3, 0.75, -0.8]);
+  inside('bookshelf', 'Bookshelf — always learning', room.shelf, 2.7, [-1.4, 1.55, -0.4], [-3, 1.3, -3.1]);
+  inside('fireplace', 'Fireplace — my journey', room.fireplace, 2.0, [0.3, 1.35, -0.3], [0, 0.85, -3.1]);
+  inside('painting', 'The deer painting — life outside code', room.painting, 0.75, [1.6, 1.85, -0.4], [4.4, 1.85, -0.5]);
 
   // ── Trees ─────────────────────────────────────────────────────
   const trees = [];
@@ -271,11 +290,34 @@ export function createScene(canvas, { onPick }) {
     camera.setViewOffset(w, h, x, y, w, h);
   }
 
+  let area = 'outside';
+  const homeOf = () => (area === 'inside' ? ROOM_HOME : HOME);
+
   function focus(key) {
-    focused = hotspots.find((h) => h.key === key) ?? null;
-    controls.autoRotate = !focused;
+    focused = hotspots.find((h) => h.key === key && h.area === area) ?? null;
+    controls.autoRotate = !focused && area === 'outside';
     controls.enabled = !focused;
-    flyTo(focused ? focused.view : HOME, focused ? 1 : 0);
+    flyTo(focused ? focused.view : homeOf(), focused ? 1 : 0);
+  }
+
+  // Teleport between the clearing and the cabin interior (call while the screen is faded out).
+  function setArea(next) {
+    area = next;
+    focused = null;
+    tween?.kill();
+    frame.shift = 0;
+    const home = homeOf();
+    camera.position.set(...home.pos);
+    controls.target.set(...home.target);
+    const inRoom = area === 'inside';
+    Object.assign(controls, inRoom
+      ? { minDistance: 1.2, maxDistance: 3.4, minPolarAngle: Math.PI * 0.32, maxPolarAngle: Math.PI * 0.56, autoRotate: false, enabled: true }
+      : { minDistance: 6, maxDistance: 28, minPolarAngle: Math.PI * 0.18, maxPolarAngle: Math.PI * 0.46, autoRotate: true, enabled: true });
+    room.group.visible = inRoom;
+    moonLight.intensity = inRoom ? 0 : 1.1;
+    hemi.intensity = inRoom ? 0.35 : 0.9;
+    hemi.color.setHex(inRoom ? 0xffd2a0 : 0x8090c0);
+    controls.update();
   }
 
   // ── Loop ──────────────────────────────────────────────────────
@@ -289,7 +331,7 @@ export function createScene(canvas, { onPick }) {
 
     // hover
     raycaster.setFromCamera(mouse, camera);
-    const hit = focused ? null : raycaster.intersectObjects(hotspots.map((h) => h.group), true)[0];
+    const hit = focused ? null : raycaster.intersectObjects(hotspots.filter((h) => h.area === area).map((h) => h.group), true)[0];
     let o = hit?.object;
     while (o && !o.userData.key) o = o.parent;
     hovered = o ? hotspots.find((h) => h.group === o) : null;
@@ -301,7 +343,7 @@ export function createScene(canvas, { onPick }) {
       if (h.hover > 0.005 || h.hover < h.lastHover) h.mats.forEach((m) => m.emissive.setRGB(h.hover * 0.22, h.hover * 0.12, h.hover * 0.04));
       h.lastHover = h.hover;
       v.copy(h.anchor).applyMatrix4(h.group.matrixWorld).project(camera);
-      labelPositions[h.key] = { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, visible: v.z < 1, hot: h === hovered };
+      labelPositions[h.key] = { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight, visible: v.z < 1 && h.area === area && !(area === 'inside' && h.key === focused?.key), hot: h === hovered };
     });
 
     // fire flicker
@@ -317,6 +359,10 @@ export function createScene(canvas, { onPick }) {
       e.position.set(Math.sin(k * 8 + e.userData.p) * 0.2, 0.3 + k * 2.2, Math.cos(k * 6 + e.userData.p) * 0.2);
       e.material.opacity = 1 - k;
     });
+
+    room.light.intensity = 7 * f;
+    room.flames.forEach((fl, i) => { fl.scale.y = 0.85 + Math.sin(t * (8 + i * 2.3) + i) * 0.2; fl.rotation.y += dt * (1 + i); });
+    room.candles.forEach((c, i) => c.scale.setScalar(0.9 + Math.sin(t * (11 + i)) * 0.1));
 
     shed.leds.forEach((l, i) => { l.material.color.setHex(Math.sin(t * (2 + i * 1.7) + i) > -0.2 ? l.userData.on : 0x112211); });
 
@@ -357,7 +403,7 @@ export function createScene(canvas, { onPick }) {
   });
 
   tick();
-  return { focus, hotspots, labelPositions };
+  return { focus, setArea, hotspots, labelPositions, get area() { return area; } };
 }
 
 // ── Builders ────────────────────────────────────────────────────
@@ -597,4 +643,200 @@ function glowTexture() {
   x.fillStyle = grd;
   x.fillRect(0, 0, 64, 64);
   return new THREE.CanvasTexture(c);
+}
+
+function buildRoom() {
+  const group = new THREE.Group();
+  const W = 9, D = 7, H = 3.4, R = 0.17;
+
+  // floor planks
+  group.add(mesh(new THREE.BoxGeometry(W, 0.1, D), std(0x6e4a30), 0, -0.05, 0));
+  for (let x = -W / 2 + 0.45; x < W / 2; x += 0.45) group.add(mesh(new THREE.BoxGeometry(0.02, 0.02, D), std(0x4a3020), x, 0.005, 0));
+
+  // log walls
+  const logMats = [std(0x8a5a3b), std(0x7d5034), std(0x93623f)];
+  const walls = [
+    { len: W, pos: (y) => [0, y, -D / 2], rot: [0, 0, Math.PI / 2] },
+    { len: W, pos: (y) => [0, y, D / 2], rot: [0, 0, Math.PI / 2] },
+    { len: D, pos: (y) => [-W / 2, y, 0], rot: [Math.PI / 2, 0, 0] },
+    { len: D, pos: (y) => [W / 2, y, 0], rot: [Math.PI / 2, 0, 0] },
+  ];
+  walls.forEach((w, wi) => {
+    for (let i = 0; i < 10; i++) {
+      const l = mesh(new THREE.CylinderGeometry(R, R, w.len, 8), logMats[(i + wi) % 3], ...w.pos(R + i * R * 2));
+      l.rotation.set(...w.rot);
+      group.add(l);
+    }
+  });
+
+  // ceiling + beams
+  group.add(mesh(new THREE.BoxGeometry(W, 0.1, D), std(0x5a3a26), 0, H + 0.05, 0));
+  for (let z = -2.6; z <= 2.6; z += 1.3) group.add(mesh(new THREE.BoxGeometry(W, 0.22, 0.22), std(0x4a2f1f), 0, H - 0.1, z));
+
+  // window on the left wall, night outside + curtains
+  const win = new THREE.Group();
+  win.add(mesh(new THREE.PlaneGeometry(1.3, 1), new THREE.MeshBasicMaterial({ color: 0x1d2a44 })));
+  win.add(mesh(new THREE.CircleGeometry(0.08, 12), new THREE.MeshBasicMaterial({ color: 0xfff1d0 }), 0.35, 0.25, 0.01));
+  const frame = std(0x3b2619);
+  [[0, 0.53, 1.45, 0.08], [0, -0.53, 1.45, 0.08], [0, 0, 0.06, 1], [0, 0, 1.45, 0.05]].forEach(([x, y, w, h]) => win.add(mesh(new THREE.BoxGeometry(w, h, 0.08), frame, x, y, 0.03)));
+  for (const s of [-1, 1]) win.add(mesh(new THREE.BoxGeometry(0.35, 1.4, 0.06), std(0x8e3b2f), s * 0.85, -0.05, 0.1));
+  win.add(mesh(new THREE.BoxGeometry(1.6, 0.08, 0.25), std(0x6e4a30), 0, -0.58, 0.1));
+  win.position.set(-W / 2 + 0.2, 1.8, 0.6);
+  win.rotation.y = Math.PI / 2;
+  group.add(win);
+
+  // ── fireplace (back wall, center)
+  const fireplace = new THREE.Group();
+  const stone = std(0x77746f), stoneDark = std(0x5f5c58);
+  fireplace.add(mesh(new THREE.BoxGeometry(2.4, 1.5, 0.7), stone, 0, 0.75, 0));
+  fireplace.add(mesh(new THREE.BoxGeometry(1.7, H - 1.5, 0.5), stoneDark, 0, 1.5 + (H - 1.5) / 2, -0.05));
+  fireplace.add(mesh(new THREE.BoxGeometry(1.2, 0.9, 0.3), new THREE.MeshBasicMaterial({ color: 0x140c08 }), 0, 0.55, 0.22));
+  fireplace.add(mesh(new THREE.BoxGeometry(2.7, 0.12, 0.85), std(0x5e3b26), 0, 1.56, 0.05)); // mantel
+  for (let i = 0; i < 14; i++) {
+    const sx = -1.1 + Math.random() * 2.2, sy = 0.15 + Math.random() * 1.25;
+    if (Math.abs(sx) < 0.65 && sy < 1.05) continue;
+    fireplace.add(mesh(new THREE.BoxGeometry(0.3, 0.18, 0.06), stoneDark, sx, sy, 0.36));
+  }
+  for (const r of [-0.5, 0.5]) {
+    const lg = mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.8, 6), std(0x4a3020), 0, 0.22, 0.3);
+    lg.rotation.set(0, r, Math.PI / 2);
+    fireplace.add(lg);
+  }
+  const flames = [[0.22, 0.6, 0xff6a2a], [0.15, 0.48, 0xff9a3d], [0.09, 0.34, 0xffd27a]].map(([r, h, c], i) => {
+    const geo = new THREE.ConeGeometry(r, h, 6); geo.translate(0, h / 2, 0);
+    const f = mesh(geo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.92 }), (i - 1) * 0.12, 0.25, 0.32);
+    fireplace.add(f);
+    return f;
+  });
+  // mantel decor: candles, clock, small plant
+  const candles = [];
+  for (const x of [-1.05, -0.85]) {
+    fireplace.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 8), std(0xf1e6cc), x, 1.73, 0.15));
+    const fl = mesh(new THREE.SphereGeometry(0.03, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffc46b }), x, 1.88, 0.15);
+    fireplace.add(fl);
+    candles.push(fl);
+  }
+  fireplace.add(mesh(new THREE.BoxGeometry(0.3, 0.36, 0.12), std(0x6e4a30), 0.9, 1.8, 0.1));
+  fireplace.add(mesh(new THREE.CircleGeometry(0.1, 16), std(0xf4ecdf), 0.9, 1.84, 0.17));
+  fireplace.add(mesh(new THREE.IcosahedronGeometry(0.14, 0), std(0x4f7a4a), 0.45, 1.78, 0.15));
+  fireplace.position.set(0, 0, -D / 2 + 0.4);
+  const light = new THREE.PointLight(0xff8a3d, 7, 9, 1.4);
+  light.position.set(0, 0.7, -D / 2 + 1.1);
+  group.add(light);
+
+  // rug + firewood basket
+  const rug = mesh(new THREE.CylinderGeometry(1.8, 1.8, 0.02, 28), std(0x9c4a3a), 0.4, 0.01, -0.9);
+  rug.scale.z = 0.65;
+  const rugIn = mesh(new THREE.CylinderGeometry(1.4, 1.4, 0.022, 28), std(0xc8a06a), 0.4, 0.012, -0.9);
+  rugIn.scale.z = 0.65;
+  group.add(rug, rugIn);
+  group.add(mesh(new THREE.CylinderGeometry(0.3, 0.25, 0.35, 10), std(0x8a6a44), -1.6, 0.18, -2.7));
+  for (let i = 0; i < 4; i++) {
+    const lg = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.55, 6), std(0x5e3b26), -1.6 + (i - 1.5) * 0.1, 0.45, -2.7);
+    lg.rotation.x = Math.PI / 2 + (i - 1.5) * 0.15;
+    group.add(lg);
+  }
+
+  // ── bookshelf (back wall, left)
+  const shelf = new THREE.Group();
+  const wood = std(0x6a4630);
+  shelf.add(mesh(new THREE.BoxGeometry(1.7, 2.5, 0.08), std(0x4e3322), 0, 1.25, -0.2));
+  for (const x of [-0.82, 0.82]) shelf.add(mesh(new THREE.BoxGeometry(0.06, 2.5, 0.45), wood, x, 1.25, 0));
+  const bookColors = [0x8e3b2f, 0x3f5e4a, 0x2f4a6a, 0xc8a06a, 0x6b4a7a, 0xa8743a, 0x4a3a33, 0xd8cbb0];
+  for (let s = 0; s < 5; s++) {
+    const y = 0.05 + s * 0.6;
+    shelf.add(mesh(new THREE.BoxGeometry(1.64, 0.05, 0.45), wood, 0, y, 0));
+    if (s === 4) break;
+    let x = -0.76;
+    while (x < 0.7) {
+      const w = 0.06 + Math.random() * 0.06, h = 0.32 + Math.random() * 0.18;
+      if (Math.random() < 0.08) { x += 0.15; continue; }
+      const b = mesh(new THREE.BoxGeometry(w, h, 0.3), std(bookColors[Math.floor(Math.random() * bookColors.length)]), x + w / 2, y + 0.025 + h / 2, 0.02);
+      if (Math.random() < 0.06) { b.rotation.z = -0.25; x += 0.06; }
+      shelf.add(b);
+      x += w + 0.005;
+    }
+  }
+  shelf.add(mesh(new THREE.IcosahedronGeometry(0.16, 0), std(0x4f7a4a), 0.4, 2.62, 0));
+  shelf.add(mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.16, 8), std(0xb0643a), 0.4, 2.52, 0));
+  shelf.position.set(-3, 0, -D / 2 + 0.45);
+
+  // ── armchair (facing the fire) + footstool, side table, lamp
+  const chair = new THREE.Group();
+  const fabric = std(0x7a3b2e), fabricDark = std(0x5e2c22);
+  chair.add(mesh(new THREE.BoxGeometry(1, 0.35, 0.9), fabric, 0, 0.35, 0));
+  chair.add(mesh(new THREE.BoxGeometry(0.85, 0.14, 0.75), std(0x8c4636), 0, 0.58, -0.04));
+  chair.add(mesh(new THREE.BoxGeometry(1, 0.95, 0.22), fabric, 0, 0.85, 0.4));
+  for (const x of [-0.5, 0.5]) chair.add(mesh(new THREE.BoxGeometry(0.16, 0.55, 0.9), fabricDark, x, 0.5, 0));
+  for (const [x, z] of [[-0.42, -0.36], [0.42, -0.36], [-0.42, 0.36], [0.42, 0.36]]) chair.add(mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.18, 6), std(0x3b2619), x, 0.09, z));
+  const blanket = mesh(new THREE.BoxGeometry(0.5, 0.6, 0.04), std(0xd8cbb0), 0.15, 0.95, 0.53);
+  blanket.rotation.z = 0.1;
+  chair.add(blanket);
+  chair.add(mesh(new THREE.BoxGeometry(0.28, 0.04, 0.2), std(0x2f4a6a), -0.1, 0.67, -0.1)); // open book
+  chair.position.set(1.3, 0, -0.8);
+  chair.rotation.y = 0.45; // back to the room, facing the fireplace
+  group.add(mesh(new THREE.BoxGeometry(0.55, 0.3, 0.45), fabricDark, 0.9, 0.17, -1.7));
+  group.add(mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 12), wood, 2.3, 0.62, -0.4));
+  group.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6), wood, 2.3, 0.31, -0.4));
+  group.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 6), std(0x3b2619), 2.35, 0.87, -0.5));
+  group.add(mesh(new THREE.CylinderGeometry(0.12, 0.22, 0.25, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd9a0, side: THREE.DoubleSide }), 2.35, 1.18, -0.5));
+  group.add(mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.1, 10), std(0xe8dcc6), 2.2, 0.7, -0.3));
+  const lamp = new THREE.PointLight(0xffc98a, 3, 6, 1.6);
+  lamp.position.set(2.35, 1.2, -0.5);
+  group.add(lamp);
+
+  // ── deer painting (right wall)
+  const painting = new THREE.Group();
+  painting.add(mesh(new THREE.BoxGeometry(1.5, 1.1, 0.06), std(0x5a3a26)));
+  painting.add(mesh(new THREE.PlaneGeometry(1.3, 0.9), new THREE.MeshStandardMaterial({ map: deerTexture(), roughness: 1 }), 0, 0, 0.035));
+  painting.position.set(W / 2 - 0.2, 1.85, -0.5);
+  painting.rotation.y = -Math.PI / 2;
+
+  // coat hook with a scarf, and the front door behind the camera
+  group.add(mesh(new THREE.BoxGeometry(0.5, 0.06, 0.06), std(0x3b2619), 2.5, 1.9, D / 2 - 0.22));
+  group.add(mesh(new THREE.BoxGeometry(0.16, 0.7, 0.05), std(0x3f5e4a), 2.4, 1.55, D / 2 - 0.25));
+  group.add(mesh(new THREE.BoxGeometry(1, 2, 0.1), std(0x5a3a26), 0.8, 1, D / 2 - 0.2));
+
+  return { group, chair, shelf, fireplace, painting, flames, candles, light };
+}
+
+function deerTexture() {
+  const c = document.createElement('canvas');
+  c.width = 520; c.height = 360;
+  const x = c.getContext('2d');
+  const sky = x.createLinearGradient(0, 0, 0, 360);
+  sky.addColorStop(0, '#2e3a5a'); sky.addColorStop(0.55, '#c88a6a'); sky.addColorStop(1, '#e8c39a');
+  x.fillStyle = sky; x.fillRect(0, 0, 520, 360);
+  x.fillStyle = '#f6e3c0'; x.beginPath(); x.arc(380, 120, 28, 0, Math.PI * 2); x.fill();
+  // hills
+  x.fillStyle = '#5b5a6e';
+  x.beginPath(); x.moveTo(0, 250); x.quadraticCurveTo(140, 170, 300, 235); x.quadraticCurveTo(420, 190, 520, 230); x.lineTo(520, 360); x.lineTo(0, 360); x.fill();
+  // pines
+  x.fillStyle = '#2c3b38';
+  for (let i = 0; i < 16; i++) {
+    const px = i * 34 + (i % 3) * 7, h = 50 + (i * 37) % 45, base = 290;
+    x.beginPath(); x.moveTo(px, base - h); x.lineTo(px - 14, base); x.lineTo(px + 14, base); x.fill();
+  }
+  x.fillStyle = '#3a3a2e'; x.fillRect(0, 290, 520, 70);
+  // deer silhouette
+  x.fillStyle = '#1e1a18'; x.strokeStyle = '#1e1a18'; x.lineCap = 'round';
+  x.beginPath(); x.ellipse(220, 262, 48, 20, 0, 0, Math.PI * 2); x.fill();
+  x.beginPath(); x.moveTo(250, 255); x.lineTo(272, 210); x.lineTo(284, 214); x.lineTo(266, 262); x.fill();
+  x.beginPath(); x.ellipse(286, 208, 16, 9, -0.3, 0, Math.PI * 2); x.fill();
+  x.lineWidth = 7;
+  for (const lx of [185, 200, 240, 255]) { x.beginPath(); x.moveTo(lx, 270); x.lineTo(lx + (lx % 2 ? 3 : -2), 318); x.stroke(); }
+  x.lineWidth = 3;
+  const antler = (s) => {
+    x.beginPath();
+    x.moveTo(280, 200); x.lineTo(270 + s * 6, 170); x.lineTo(262 + s * 14, 150);
+    x.moveTo(271 + s * 5, 178); x.lineTo(285 + s * 10, 165);
+    x.moveTo(266 + s * 10, 162); x.lineTo(252 + s * 12, 150);
+    x.stroke();
+  };
+  antler(0); antler(1.4);
+  x.beginPath(); x.moveTo(296, 202); x.lineTo(304, 192); x.stroke();
+  for (let i = 0; i < 2500; i++) { x.fillStyle = 'rgba(255,255,255,' + Math.random() * 0.04 + ')'; x.fillRect(Math.random() * 520, Math.random() * 360, 2, 2); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }

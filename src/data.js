@@ -18,6 +18,26 @@ export const about = [
   'Pull up a log by the fire and have a look around.',
 ];
 
+// ── Inside the cabin ─────────────────────────────
+export const learning = {
+  intro: 'A few books and courses that shaped how I work — and what I’m reading now.',
+  reading: ['The Phoenix Project', 'Designing Data-Intensive Applications', 'Site Reliability Engineering'],
+  certs: ['AWS Certified Cloud Practitioner (in progress)', 'Certified Kubernetes Administrator (goal)'],
+  now: ['Platform engineering', 'eBPF & observability', 'Rust for CLI tools'],
+};
+
+export const journey = [
+  { year: '2026', title: 'Full-stack & DevOps engineer', text: 'Shipping products end-to-end and automating the path to production.' },
+  { year: '2025', title: 'Into the cloud', text: 'Containers, Kubernetes and Terraform — infrastructure as code clicked.' },
+  { year: '2023', title: 'First full-stack apps', text: 'React frontends, Node APIs, Postgres. Learned by building.' },
+  { year: '2021', title: 'Hello, world', text: 'Wrote my first lines of code and never really stopped.' },
+];
+
+export const outside = {
+  intro: 'When I’m not at a terminal, you’ll probably find me somewhere like this painting.',
+  hobbies: ['Hiking & camping', 'Photography', 'Coffee brewing', 'Video games', 'Reading by the fire'],
+};
+
 export const skills = [
   { group: 'Frontend', items: ['React', 'Next.js', 'TypeScript', 'Tailwind', 'Three.js'] },
   { group: 'Backend', items: ['Node.js', 'NestJS', 'Express', 'Python', 'GraphQL', 'REST'] },

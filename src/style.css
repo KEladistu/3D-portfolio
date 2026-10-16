@@ -111,3 +111,17 @@ body.reading #panel { transform: none; }
   #panel { top: auto; height: 72vh; left: 12px; right: 12px; bottom: 12px; width: auto; transform: translateY(110%); }
   .label { font-size: 13px; }
 }
+
+/* Cabin interior */
+#fade { position: fixed; inset: 0; z-index: 40; background: #0b0806; opacity: 0; pointer-events: none; transition: opacity .6s ease; }
+body.fading #fade { opacity: 1; pointer-events: auto; }
+.exit {
+  position: fixed; left: 50%; bottom: 58px; transform: translate(-50%, 20px); z-index: 12;
+  font-family: 'Fraunces', serif; font-size: 16px; color: var(--ink);
+  padding: 10px 22px; border-radius: 999px; background: var(--paper);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  opacity: 0; pointer-events: none; transition: opacity .5s, transform .5s, background .2s;
+}
+.exit:hover { background: #fff8ec; color: var(--ember); }
+body.inside .exit { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+body.inside.reading .exit { opacity: 0; pointer-events: none; }
