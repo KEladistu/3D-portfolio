@@ -125,3 +125,6 @@ body.fading #fade { opacity: 1; pointer-events: auto; }
 .exit:hover { background: #fff8ec; color: var(--ember); }
 body.inside .exit { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
 body.inside.reading .exit { opacity: 0; pointer-events: none; }
+
+.points { margin: 12px 0 0 18px; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
+.points li { margin-top: 6px; }

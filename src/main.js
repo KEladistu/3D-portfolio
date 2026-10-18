@@ -1,5 +1,5 @@
 import './style.css';
-import { profile, about, learning, journey, outside, skills, workshop, projects } from './data.js';
+import { profile, about, learning, journey, outside, skillsIntro, skills, workshopIntro, workshop, projects } from './data.js';
 import { createScene } from './scene.js';
 import { createAmbience } from './audio.js';
 
@@ -22,13 +22,17 @@ const pages = {
     <p class="kicker">The bookshelf</p>
     <h2>Always learning</h2>
     <p>${learning.intro}</p>
-    <h3>On the shelf</h3>${tags(learning.reading)}
-    <h3>Certifications</h3>${tags(learning.certs)}
+    <h3>Education</h3>
+    ${learning.education.map((e) => `<p><strong>${e.title}</strong><br />${e.place}</p>`).join('')}
     <h3>Currently exploring</h3>${tags(learning.now)}`,
   fireplace: () => `
     <p class="kicker">By the fireplace</p>
     <h2>My journey</h2>
-    ${journey.map((j) => `<div class="project"><p class="kicker">${j.year}</p><h3>${j.title}</h3><p>${j.text}</p></div>`).join('')}`,
+    ${journey.map((j) => `
+      <div class="project">
+        <p class="kicker">${j.year}</p><h3>${j.title}</h3><p>${j.text}</p>
+        ${j.points ? `<ul class="points">${j.points.map((p) => `<li>${p}</li>`).join('')}</ul>` : ''}
+      </div>`).join('')}`,
   painting: () => `
     <p class="kicker">The deer painting</p>
     <h2>Life outside code</h2>
@@ -37,12 +41,12 @@ const pages = {
   skills: () => `
     <p class="kicker">By the fire</p>
     <h2>What I build with</h2>
-    <p>The everyday tools for building the product itself — interface, API and data.</p>
+    <p>${skillsIntro}</p>
     ${groups(skills)}`,
   workshop: () => `
     <p class="kicker">The workshop</p>
     <h2>DevOps & cloud</h2>
-    <p>Where things get packaged, tested, shipped and watched. Yes, there’s a little server rack in the woodshed.</p>
+    <p>${workshopIntro}</p>
     ${groups(workshop)}`,
   projects: () => `
     <p class="kicker">Down the trail</p>
@@ -57,12 +61,12 @@ const pages = {
   contact: () => `
     <p class="kicker">The mailbox</p>
     <h2>Say hello</h2>
-    <p>Open to full-time roles, freelance work, and good conversations about infrastructure. I usually reply within a day.</p>
+    <p>Open to full-time roles, freelance work, and good conversations about robots, the web and the cloud.</p>
     <ul class="links">
       <li><a href="mailto:${profile.email}">Email <small>${profile.email}</small></a></li>
-      <li><a href="${profile.github}" target="_blank" rel="noopener">GitHub <small>↗</small></a></li>
-      <li><a href="${profile.linkedin}" target="_blank" rel="noopener">LinkedIn <small>↗</small></a></li>
-      <li><a href="${profile.resume}" target="_blank" rel="noopener">Résumé <small>↗</small></a></li>
+      ${[['GitHub', profile.github], ['Website', profile.website], ['LinkedIn', profile.linkedin], ['Résumé', profile.resume]]
+        .filter(([, url]) => url)
+        .map(([label, url]) => `<li><a href="${url}" target="_blank" rel="noopener">${label} <small>↗</small></a></li>`).join('')}
     </ul>`,
 };
 
