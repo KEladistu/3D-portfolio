@@ -43,7 +43,7 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
   - The color palette lives in the `C` object at the top.
   - When a panel is open, `applyViewOffset()` shifts the camera frustum so the focused object isn't covered by the panel (right side on desktop, bottom on mobile).
 - `src/main.js`: UI. `pages[key]()` returns panel HTML. Also handles the nav, the in-world HTML labels and the sound toggle.
-- `src/audio.js`: procedural Web Audio ambience (no audio files).
+- `src/audio.js`: procedural Web Audio ambience (no audio files): soft fire, gentle crickets, music-box melody. Keep it calm, never harsh or eerie.
 - `src/style.css`: CSS variables at the top. The `body.reading` class is set while a panel is open.
 - `public/models/`: optional `.glb` models. `cabin.glb` automatically replaces the procedural cabin.
 
