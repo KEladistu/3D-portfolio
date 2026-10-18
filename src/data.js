@@ -60,8 +60,8 @@ export const journey = [
 ];
 
 export const outside = {
-  intro: 'When I’m not at a terminal, I’m usually building something just for fun — or hanging out with Golliath, my apricot toy poodle (who now has his own video game).',
-  hobbies: ['Golliath the poodle', 'Making small games', 'Building with 3D on the web', 'Tinkering with hardware'],
+  intro: 'When I’m not at a terminal, I’m probably on a plane to somewhere new, singing along to a good song, or shuffling a deck of cards. And yes — still catching Pokémon.',
+  hobbies: ['Traveling & exploring other countries', 'Singing', 'Card games', 'Pokémon games', 'Golliath, my apricot toy poodle', 'Making small games'],
 };
 
 // ── Outside ──────────────────────────────────────
