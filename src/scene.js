@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import gsap from 'gsap';
 
 const HOME = { pos: [13, 7.5, 15], target: [0, 1.2, 0] };
@@ -25,9 +26,12 @@ const mesh = (geo, mat, x = 0, y = 0, z = 0) => {
   return m;
 };
 
+// Phones/tablets get a lighter scene: lower resolution, smaller shadow map, fewer trees.
+const MOBILE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 700;
+
 export function createScene(canvas, { onPick }) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE || devicePixelRatio < 2, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1.5 : 1.75));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -45,7 +49,7 @@ export function createScene(canvas, { onPick }) {
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.minDistance = 6;
-  controls.maxDistance = 28;
+  controls.maxDistance = 42;
   controls.maxPolarAngle = Math.PI * 0.46;
   controls.minPolarAngle = Math.PI * 0.18;
   controls.autoRotate = true;
@@ -84,7 +88,7 @@ export function createScene(canvas, { onPick }) {
   const moonLight = new THREE.DirectionalLight(0xb8c4ff, 1.1);
   moonLight.position.set(-14, 20, -10);
   moonLight.castShadow = true;
-  moonLight.shadow.mapSize.set(1024, 1024);
+  moonLight.shadow.mapSize.setScalar(MOBILE ? 512 : 1024);
   Object.assign(moonLight.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
   moonLight.shadow.bias = -0.0005;
   scene.add(moonLight);
@@ -122,6 +126,7 @@ export function createScene(canvas, { onPick }) {
   function hotspot(key, label, group, labelY, view, area = 'outside') {
     group.userData.key = key;
     if (!group.parent) scene.add(group);
+    if (!group.userData.noMerge) mergeStatic(group, group.userData.skip);
     const mats = new Set();
     group.traverse((o) => o.isMesh && o.material.emissive && mats.add(o.material));
     hotspots.push({ key, label, group, mats: [...mats], anchor: new THREE.Vector3(0, labelY, 0), view, area, hover: 0, baseY: group.position.y });
@@ -139,6 +144,7 @@ export function createScene(canvas, { onPick }) {
 
   // Woodshed (DevOps)
   const shed = buildShed();
+  shed.group.userData.skip = shed.leds;
   shed.group.position.set(5.6, 0, -2.4);
   shed.group.rotation.y = -0.5;
   hotspot('workshop', 'DevOps & cloud', shed.group, 3.2, { pos: [3.5, 2.1, 1.6], target: [5.6, 1.0, -2.4] });
@@ -166,6 +172,7 @@ export function createScene(canvas, { onPick }) {
   };
   inside('chair', 'About me', room.chair, 1.5, [2.9, 1.55, 1.3], [1.3, 0.75, -0.8]);
   inside('bookshelf', 'Learning', room.shelf, 2.7, [-1.4, 1.55, -0.4], [-3, 1.3, -3.1]);
+  room.fireplace.userData.skip = room.candles;
   inside('fireplace', 'My journey', room.fireplace, 2.0, [0.3, 1.35, -0.3], [0, 0.85, -3.1]);
   inside('painting', 'Life outside code', room.painting, 0.75, [1.6, 1.85, -0.4], [4.4, 1.85, -0.5]);
 
@@ -174,6 +181,7 @@ export function createScene(canvas, { onPick }) {
   // He trots a loop around the cabin (waypoints ordered by angle so he never cuts through it).
   const PATH = [[0.3, 4.6], [2.4, 4.4], [3.7, 2.1], [5.0, 0.6], [2.8, -3.6], [-0.5, -3.8], [-3.6, -2.6], [-3.9, 1.2], [-2.4, 3.6]];
   const dog = buildPoodle();
+  dog.group.userData.noMerge = true;
   dog.group.position.set(PATH[0][0], 0, PATH[0][1]);
   const walk = { i: 0, dir: 1, wait: 1.5, heading: 0, phase: 0 };
   hotspot('golliath', 'Golliath', dog.group, 0.95, () => {
@@ -187,16 +195,19 @@ export function createScene(canvas, { onPick }) {
   sleepy.group.position.set(-0.7, 0, -1.6);
   sleepy.group.rotation.y = 0.9;
   room.group.add(sleepy.group);
+  mergeStatic(room.group, [room.chair, room.shelf, room.fireplace, room.painting, sleepy.group]);
 
   const trees = [];
   const avoid = [[0, 0, 5.5], [4.6, 4.2, 2], [5.6, -2.4, 2.4], [-3.6, 4.6, 1.5], [1, 7, 2.5], [0, 10, 3]];
   let tries = 0;
-  while (trees.length < 220 && tries++ < 5000) {
+  while (trees.length < (MOBILE ? 150 : 220) && tries++ < 5000) {
     const r = 6 + Math.random() ** 0.7 * 40;
     const a = Math.random() * Math.PI * 2;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (avoid.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar)) continue;
     if (z > 6 && Math.abs(x) < 6 && r < 16) continue; // keep camera view clear
+    const along = (x * 13 + z * 15) / 19.85, across = Math.abs(x * 15 - z * 13) / 19.85;
+    if (along > 0 && along < 30 && across < 3 + along * 0.25) continue; // sightline to the home camera
     trees.push({ x, z, s: 0.8 + Math.random() * 0.9, c: Math.floor(Math.random() * 4) });
   }
   const trunkGeo = new THREE.CylinderGeometry(0.12, 0.18, 1, 6); trunkGeo.translate(0, 0.5, 0);
@@ -279,13 +290,28 @@ export function createScene(canvas, { onPick }) {
   const mouse = new THREE.Vector2(9, 9);
   let hovered = null, downAt = null, focused = null, focusedView = null;
 
+  let mouseUser = false; // hover effects only make sense with a real mouse
+
+  function pick(x, y) {
+    if (focused) return null;
+    mouse.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
+    raycaster.setFromCamera(mouse, camera);
+    const hit = raycaster.intersectObjects(hotspots.filter((h) => h.area === area).map((h) => h.group), true)[0];
+    let o = hit?.object;
+    while (o && !o.userData.key) o = o.parent;
+    return o ? hotspots.find((h) => h.group === o) : null;
+  }
+
   canvas.addEventListener('pointermove', (e) => {
+    mouseUser = e.pointerType === 'mouse';
     mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   });
   canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; controls.autoRotate = false; });
   canvas.addEventListener('pointerup', (e) => {
-    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
-    onPick(hovered ? hovered.key : null); // clicking empty space while reading goes back outside
+    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > (e.pointerType === 'mouse' ? 5 : 12)) return;
+    downAt = null;
+    const h = pick(e.clientX, e.clientY);
+    onPick(h ? h.key : null); // tapping empty space while reading goes back outside
   });
 
   let tween;
@@ -294,7 +320,7 @@ export function createScene(canvas, { onPick }) {
   // Orbit limits only apply while the user is free-looking; close-ups and transitions ignore them,
   // otherwise OrbitControls clamps the camera into the object it's flying to.
   const LIMITS = {
-    outside: { minDistance: 6, maxDistance: 28, minPolarAngle: Math.PI * 0.18, maxPolarAngle: Math.PI * 0.46, minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity, enableZoom: true, rotateSpeed: 1, dampingFactor: 0.05 },
+    outside: { minDistance: 6, maxDistance: 42, minPolarAngle: Math.PI * 0.18, maxPolarAngle: Math.PI * 0.46, minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity, enableZoom: true, rotateSpeed: 1, dampingFactor: 0.05 },
     inside: { minDistance: 0.05, maxDistance: 0.6, minPolarAngle: Math.PI * 0.36, maxPolarAngle: Math.PI * 0.6, minAzimuthAngle: -1.25, maxAzimuthAngle: 1.25, enableZoom: false, rotateSpeed: 0.3, dampingFactor: 0.06 },
     free: { minDistance: 0, maxDistance: Infinity, minPolarAngle: 0, maxPolarAngle: Math.PI, minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity },
   };
@@ -323,12 +349,16 @@ export function createScene(canvas, { onPick }) {
     const mobile = w <= 640;
     const panelW = Math.min(440, w - 32) + 16;
     const x = mobile ? 0 : (panelW / 2) * frame.shift;
-    const y = mobile ? h * 0.34 * frame.shift : 0;
+    const y = mobile ? h * 0.3 * frame.shift : 0;
     camera.setViewOffset(w, h, x, y, w, h);
   }
 
   let area = 'outside';
-  const homeOf = () => (area === 'inside' ? ROOM_HOME : HOME);
+  const outsideHome = () => {
+    const k = THREE.MathUtils.clamp(1.2 / camera.aspect, 1, 1.65);
+    return { pos: HOME.pos.map((v, i) => HOME.target[i] + (v - HOME.target[i]) * k), target: HOME.target };
+  };
+  const homeOf = () => (area === 'inside' ? ROOM_HOME : outsideHome());
 
   function focus(key) {
     focused = hotspots.find((h) => h.key === key && h.area === area) ?? null;
@@ -403,18 +433,22 @@ export function createScene(canvas, { onPick }) {
   const clock = new THREE.Clock();
   const v = new THREE.Vector3();
   const labelPositions = {};
+  let frameNo = 0;
 
   function tick() {
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
 
     // hover
-    raycaster.setFromCamera(mouse, camera);
-    const hit = focused ? null : raycaster.intersectObjects(hotspots.filter((h) => h.area === area).map((h) => h.group), true)[0];
-    let o = hit?.object;
-    while (o && !o.userData.key) o = o.parent;
-    hovered = o ? hotspots.find((h) => h.group === o) : null;
-    canvas.style.cursor = hovered ? 'pointer' : 'grab';
+    // hover (mouse only; raycast every other frame — plenty for a highlight)
+    if (mouseUser && (frameNo++ & 1) === 0) {
+      raycaster.setFromCamera(mouse, camera);
+      const hit = focused ? null : raycaster.intersectObjects(hotspots.filter((h) => h.area === area).map((h) => h.group), true)[0];
+      let o = hit?.object;
+      while (o && !o.userData.key) o = o.parent;
+      hovered = o ? hotspots.find((h) => h.group === o) : null;
+      canvas.style.cursor = hovered ? 'pointer' : 'grab';
+    } else if (!mouseUser) hovered = null;
 
     hotspots.forEach((h) => {
       h.hover += ((h === hovered ? 1 : 0) - h.hover) * 0.15;
@@ -468,7 +502,7 @@ export function createScene(canvas, { onPick }) {
 
     // gentle "breathing" parallax while focused so the close-up doesn't feel frozen
     if (focused && !tween?.isActive()) {
-      const amp = area === 'inside' ? 0.4 : 1;
+      const amp = (area === 'inside' ? 0.4 : 1) * (mouseUser ? 1 : 0);
       camera.position.x += (THREE.MathUtils.clamp(mouse.x, -1, 1) * 0.25 * amp + focusedView.pos[0] - camera.position.x) * 0.03;
       camera.position.y += (THREE.MathUtils.clamp(mouse.y, -1, 1) * 0.15 * amp + focusedView.pos[1] - camera.position.y) * 0.03;
     }
@@ -485,8 +519,38 @@ export function createScene(canvas, { onPick }) {
     renderer.setSize(innerWidth, innerHeight);
   });
 
+  camera.position.set(...outsideHome().pos);
   tick();
   return { focus, setArea, approach, hotspots, labelPositions, get area() { return area; } };
+}
+
+// Merge every static, untextured, opaque mesh under `root` into one mesh per material look.
+// Hundreds of logs/books/stones become a handful of draw calls. Animated parts go in `skip`.
+function mergeStatic(root, skip = []) {
+  root.updateWorldMatrix(true, true);
+  const inv = root.matrixWorld.clone().invert();
+  const buckets = new Map();
+  const merged = [];
+  root.traverse((o) => {
+    if (!o.isMesh || o.material.map || o.material.transparent) return;
+    for (let p = o; p && p !== root; p = p.parent) if (skip.includes(p)) return;
+    const m = o.material;
+    const key = [m.type, m.color.getHex(), m.side, m.roughness, m.metalness, o.castShadow, o.receiveShadow].join('|');
+    const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+    g.clearGroups();
+    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    if (!buckets.has(key)) buckets.set(key, { mat: m, cast: o.castShadow, receive: o.receiveShadow, geos: [] });
+    buckets.get(key).geos.push(g);
+    merged.push(o);
+  });
+  merged.forEach((o) => o.removeFromParent());
+  buckets.forEach((b) => {
+    const mesh = new THREE.Mesh(mergeGeometries(b.geos), b.mat);
+    mesh.castShadow = b.cast;
+    mesh.receiveShadow = b.receive;
+    root.add(mesh);
+  });
 }
 
 // ── Builders ────────────────────────────────────────────────────

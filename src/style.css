@@ -14,7 +14,12 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  touch-action: manipulation; /* no double-tap zoom delay */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
+#panel { -webkit-user-select: text; user-select: text; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 a { color: inherit; }
 
@@ -106,10 +111,20 @@ body.reading #panel { transform: none; }
 .links small { color: var(--ink-soft); }
 
 @media (max-width: 640px) {
-  .top { padding: 18px; flex-direction: column; gap: 12px; }
-  #nav { gap: 16px; }
-  #panel { top: auto; height: 72vh; left: 12px; right: 12px; bottom: 12px; width: auto; transform: translateY(110%); }
-  .label { font-size: 13px; }
+  .top { padding: 14px 16px; flex-direction: column; gap: 10px; transition: opacity .4s; }
+  .name strong { font-size: 19px; }
+  #nav { gap: 6px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  #nav::-webkit-scrollbar { display: none; }
+  #nav button { flex: none; padding: 8px 10px; border: 1px solid rgba(244,236,223,.18); border-radius: 999px; background: rgba(30,24,18,.45); }
+  body.reading .top { opacity: 0; pointer-events: none; }
+  #panel { top: auto; height: 62vh; height: 62dvh; left: 10px; right: 10px; bottom: 10px; width: auto; padding: 22px 22px 32px; transform: translateY(110%); }
+  #panel h2 { font-size: 28px; }
+  #close { padding: 6px 0; }
+  .label { font-size: 13px; padding: 7px 12px; }
+  .hint { bottom: 64px; font-size: 12px; }
+  .sound { left: 16px; bottom: 16px; padding: 8px 14px; }
+  .exit { bottom: 16px; left: auto; right: 16px; transform: none; }
+  body.inside .exit { transform: none; }
 }
 
 /* Cabin interior */

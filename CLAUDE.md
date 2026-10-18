@@ -53,7 +53,8 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
 
 - Match the existing style: small helpers (`std()`, `mesh()`), flat shading, minimal comments.
 - Animate inside the single `tick()` loop; don't add extra `requestAnimationFrame` loops in the scene.
-- Keep performance in mind: instanced meshes for repeated objects, only the moon light casts shadows, pixel ratio capped at 1.75.
+- Keep performance in mind: instanced meshes for repeated objects, only the moon light casts shadows, pixel ratio capped at 1.75 (1.5 on mobile). `hotspot()` runs `mergeStatic()` on each object, merging static meshes into one per material. Put animated meshes in `group.userData.skip`, or set `userData.noMerge`.
+- `MOBILE` (coarse pointer or small screen) lowers quality: smaller shadow map, fewer trees. Hover raycasts only run for a real mouse; taps raycast on `pointerup`.
 - Adding a new section means: a builder in `scene.js`, a `hotspot(...)` call, a `pages[key]` entry and a `navItems` entry in `main.js`, and content in `data.js`.
 - In-world labels are short plain words ("Explore", "Projects", "Contact"), not the object name.
 - Only the current area is rendered and animated (`scene.children` visibility is toggled in `setArea`); inside, the camera is a first-person look-around (target just in front of it).
@@ -90,7 +91,8 @@ Check items off as they're completed.
 ### Performance & quality
 - [ ] Real loading progress (THREE.LoadingManager) once `.glb` models are added.
 - [ ] Code-split three.js / gsap into a vendor chunk (the build warns about chunk size).
-- [ ] Lower quality on weak devices (fewer trees, no shadows) based on a quick FPS check.
+- [x] Lower quality on mobile (resolution, shadow map, tree count).
+- [ ] Adaptive quality from a live FPS check.
 - [ ] Pause rendering when the tab is hidden or nothing is moving.
 - [ ] Respect `prefers-reduced-motion` (no auto-rotate, instant camera cuts).
 
