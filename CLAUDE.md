@@ -61,6 +61,10 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
 - Must work on mobile (≤640px: the panel becomes a bottom sheet).
 - 3D models from the web must be free to use (CC0 or CC-BY, with credit added to the README) and saved as `.glb` in `public/models/`.
 
+## Deployment
+
+- Pushing to `main` triggers the GitHub Pages workflow. `vite.config.js` uses `base: './'`, so always reference public assets via `import.meta.env.BASE_URL`, never with a leading `/`.
+
 ## Git workflow
 
 - Remote: https://github.com/KEladistu/3D-portfolio (branch `main`).
@@ -90,7 +94,7 @@ Check items off as they're completed.
 
 ### Performance & quality
 - [ ] Real loading progress (THREE.LoadingManager) once `.glb` models are added.
-- [ ] Code-split three.js / gsap into a vendor chunk (the build warns about chunk size).
+- [x] Code-split three.js / gsap into a vendor chunk (`vite.config.js`).
 - [x] Lower quality on mobile (resolution, shadow map, tree count).
 - [ ] Adaptive quality from a live FPS check.
 - [ ] Pause rendering when the tab is hidden or nothing is moving.
@@ -102,6 +106,6 @@ Check items off as they're completed.
 - [ ] Open Graph image, favicon and meta tags.
 
 ### DevOps (showcase the skills)
-- [ ] GitHub Actions: build on every push and deploy to GitHub Pages (or AWS S3 + CloudFront via Terraform).
+- [x] GitHub Actions: build on every push and deploy to GitHub Pages (`.github/workflows/deploy.yml`). Live at https://keladistu.github.io/3D-portfolio/
 - [ ] Lighthouse CI check in the pipeline.
 - [ ] Custom domain.

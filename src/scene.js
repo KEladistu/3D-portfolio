@@ -272,9 +272,9 @@ export function createScene(canvas, { onPick }) {
   const chimneyTop = new THREE.Vector3(1.3, 4.7, -0.5);
 
   // Optional: drop a real model at public/models/cabin.glb to replace the procedural cabin.
-  fetch('/models/cabin.glb', { method: 'HEAD' }).then((r) => {
+  fetch(import.meta.env.BASE_URL + 'models/cabin.glb', { method: 'HEAD' }).then((r) => {
     if (!r.ok || !r.headers.get('content-type')?.includes('gltf')) return;
-    new GLTFLoader().load('/models/cabin.glb', (gltf) => {
+    new GLTFLoader().load(import.meta.env.BASE_URL + 'models/cabin.glb', (gltf) => {
       const model = gltf.scene;
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
