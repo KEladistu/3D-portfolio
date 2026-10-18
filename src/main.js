@@ -158,4 +158,7 @@ $('#sound').onclick = (e) => {
   on ? ambience.on() : ambience.off();
 };
 
-addEventListener('load', () => setTimeout(() => $('#loader').classList.add('done'), 300));
+// hide the loader once loaded, or after 3.5s at most (slow fonts/network shouldn't block the scene)
+const hideLoader = () => $('#loader').classList.add('done');
+addEventListener('load', () => setTimeout(hideLoader, 300));
+setTimeout(hideLoader, 3500);
