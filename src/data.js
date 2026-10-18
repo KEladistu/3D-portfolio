@@ -36,6 +36,7 @@ export const journey = [
       'Built a real-time dashboard running Django as a native ROS2 node (rclpy), removing rosbridge and replaying the last 500 logs on reconnect.',
       'Engineered a 100 Hz joint-state heartbeat that surfaces arm failures in under 3 seconds.',
       'Architected the Azure Blob Storage layer for all robotics data, replacing every connection string and SAS token with Azure AD RBAC.',
+      'Led the CI/CD infrastructure: GitLab pipelines that push updates to the robot machines over a private Tailscale/Headscale network, coordinated from a VPS hosted on Azure.',
       'Built an automated local-to-cloud data pipeline with systemd timers and SHA256 verification — no duplicates, no manual transfers.',
       'Wrote operator SOPs for all 12 components so non-technical operators can resolve common faults.',
     ],
@@ -73,10 +74,11 @@ export const skills = [
   { group: 'Robotics & vision', items: ['ROS2', 'rclpy', 'MoveIt2', 'YOLOv8', 'OCR', 'Jetson AGX Orin', 'Socket programming'] },
 ];
 
-export const workshopIntro = 'Where things get packaged, shipped, stored and kept safe. I designed and run an automated pipeline that moves robotics data from local machines to Azure — verified, deduplicated and secured with RBAC.';
+export const workshopIntro = 'Where things get packaged, shipped, stored and kept safe. I lead our CI/CD setup — GitLab pipelines that deliver updates to robots over a Tailscale/Headscale mesh, coordinated from an Azure-hosted VPS — and I designed the automated pipeline that moves robotics data from local machines to Azure, verified and secured with RBAC.';
 export const workshop = [
-  { group: 'Cloud & security', items: ['Azure Blob Storage', 'Azure AD / RBAC'] },
-  { group: 'Automation & pipelines', items: ['systemd timers', 'Celery + Redis', 'SHA256-verified sync', 'CI/CD'] },
+  { group: 'Cloud & security', items: ['Azure VPS', 'Azure Blob Storage', 'Azure AD / RBAC'] },
+  { group: 'CI/CD & networking', items: ['GitLab CI/CD', 'Tailscale', 'Headscale (self-hosted)', 'Remote deployments'] },
+  { group: 'Automation & pipelines', items: ['systemd timers', 'Celery + Redis', 'SHA256-verified sync'] },
   { group: 'Infrastructure', items: ['Docker', 'Linux', 'Bash'] },
   { group: 'Source control', items: ['Git', 'GitHub', 'GitLab'] },
 ];
