@@ -395,6 +395,7 @@ export function createScene(canvas, { onPick }) {
     dog.legs.forEach((l, i) => (l.rotation.x += ((i === 0 || i === 3 ? swing : -swing) - l.rotation.x) * 0.3));
     dog.body.position.y = moving ? Math.abs(Math.sin(walk.phase)) * 0.025 : 0;
     dog.tail.rotation.z = Math.sin(t * (moving || focused?.key === 'golliath' ? 14 : 4)) * 0.45;
+    dog.tongue.visible = focused?.key === 'golliath';
     dog.head.rotation.x = !moving && walk.wait > 0 && focused?.key !== 'golliath' ? 0.45 : 0; // sniffing
   }
 
@@ -923,37 +924,49 @@ function deerTexture() {
   return tex;
 }
 
-// Golliath — a fluffy apricot toy poodle built from pom-poms. Faces +z.
+// Golliath — a fluffy apricot toy poodle built from pom-poms, matched to his game sprite
+// (golliath-sprite-studio palette). Faces +z.
 function buildPoodle() {
   const group = new THREE.Group();
   const body = new THREE.Group();
   group.add(body);
-  const fur = std(0xe2a26b), furDark = std(0xc98552), dark = std(0x1c1512, { roughness: 0.4 });
+  const fur = std(0xe9cfa6), ears = std(0xd3ae7f), light = std(0xf8ecd6);
+  const ink = std(0x20180f, { roughness: 0.3 }), nose = std(0x241c16, { roughness: 0.3 });
   const puff = (r, x, y, z, mat = fur, parent = body) => {
     const m = mesh(new THREE.IcosahedronGeometry(r, 1), mat, x, y, z);
     parent.add(m);
     return m;
   };
 
-  // torso
+  // round, fluffy torso
   puff(0.15, 0, 0.33, -0.1);
-  puff(0.16, 0, 0.35, 0.06);
-  puff(0.15, 0, 0.36, 0.17);
+  puff(0.165, 0, 0.35, 0.05);
+  puff(0.15, 0, 0.37, 0.16);
 
-  // head
+  // big round head, light muzzle, dark eyes with a little shine
   const head = new THREE.Group();
-  head.position.set(0, 0.5, 0.25);
+  head.position.set(0, 0.52, 0.25);
   body.add(head);
-  puff(0.13, 0, 0.04, 0.02, fur, head);
-  puff(0.1, 0, 0.14, -0.01, fur, head); // topknot
-  const muzzle = mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.12, 8), furDark, 0, 0, 0.13);
-  muzzle.rotation.x = Math.PI / 2;
-  head.add(muzzle);
-  head.add(mesh(new THREE.SphereGeometry(0.025, 8, 6), dark, 0, 0.01, 0.2));
-  for (const x of [-0.05, 0.05]) head.add(mesh(new THREE.SphereGeometry(0.018, 8, 6), dark, x, 0.06, 0.11));
-  for (const x of [-0.12, 0.12]) {
-    const ear = puff(0.065, x, -0.03, 0, furDark, head);
-    ear.scale.set(0.8, 1.7, 0.8);
+  puff(0.16, 0, 0.04, 0, fur, head);
+  puff(0.09, 0, 0.15, -0.03, fur, head); // soft crown
+  const muzzle = puff(0.07, 0, -0.02, 0.14, light, head);
+  muzzle.scale.set(1.15, 0.85, 1);
+  head.add(mesh(new THREE.SphereGeometry(0.03, 8, 6), nose, 0, 0.01, 0.21));
+  const eyesOpen = new THREE.Group(), eyesShut = new THREE.Group();
+  for (const x of [-0.065, 0.065]) {
+    eyesOpen.add(mesh(new THREE.SphereGeometry(0.024, 8, 6), ink, x, 0.06, 0.13));
+    eyesOpen.add(mesh(new THREE.SphereGeometry(0.008, 6, 4), new THREE.MeshBasicMaterial({ color: 0xf6efe4 }), x - 0.008, 0.07, 0.152));
+    eyesShut.add(mesh(new THREE.BoxGeometry(0.04, 0.008, 0.01), ink, x, 0.055, 0.145));
+  }
+  eyesShut.visible = false;
+  head.add(eyesOpen, eyesShut);
+  const tongue = mesh(new THREE.BoxGeometry(0.035, 0.01, 0.05), std(0xe0708a), 0, -0.085, 0.2);
+  tongue.rotation.x = 0.5;
+  tongue.visible = false;
+  head.add(tongue);
+  for (const x of [-0.14, 0.14]) {
+    const ear = puff(0.07, x, -0.04, -0.01, ears, head);
+    ear.scale.set(0.8, 1.8, 0.85);
   }
 
   // legs (pivot at the hip so they can swing)
@@ -978,8 +991,10 @@ function buildPoodle() {
 
   group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
 
-  // curled up asleep: legs tucked, head resting low
+  // curled up asleep: legs tucked, head resting low, eyes closed
   function lieDown() {
+    eyesOpen.visible = false;
+    eyesShut.visible = true;
     body.position.y = -0.18;
     legs.forEach((l) => (l.rotation.x = Math.PI / 2.2));
     head.position.set(0.08, 0.42, 0.24);
@@ -987,5 +1002,5 @@ function buildPoodle() {
     tail.rotation.set(-1.2, 0, 0.6);
   }
 
-  return { group, body, head, legs, tail, lieDown };
+  return { group, body, head, legs, tail, tongue, lieDown };
 }
