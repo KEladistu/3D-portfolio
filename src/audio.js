@@ -1,6 +1,6 @@
 // Procedural cozy ambience: soft fireplace, gentle crickets and a slow music-box melody — no audio files.
 export function createAmbience() {
-  let ctx, master, echo, timers = [];
+  let ctx, master, echo, enabled = false, timers = [];
   const LEVEL = 0.5;
 
   function noiseBuffer(seconds = 3) {
@@ -116,14 +116,41 @@ export function createAmbience() {
     timers.push(setTimeout(note, 1500));
   }
 
+  // a small, friendly toy-poodle "arf"
+  function bark() {
+    const t = ctx.currentTime;
+    [0, 0.17].forEach((at) => {
+      const osc = ctx.createOscillator();
+      const bp = ctx.createBiquadFilter();
+      const g = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(720, t + at);
+      osc.frequency.exponentialRampToValueAtTime(430, t + at + 0.1);
+      bp.type = 'bandpass';
+      bp.frequency.value = 1100;
+      bp.Q.value = 1.2;
+      g.gain.setValueAtTime(0, t + at);
+      g.gain.linearRampToValueAtTime(0.12, t + at + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.12);
+      osc.connect(bp).connect(g);
+      g.connect(master);
+      g.connect(echo);
+      osc.start(t + at);
+      osc.stop(t + at + 0.14);
+    });
+  }
+
   return {
+    bark() { if (enabled) bark(); },
     on() {
+      enabled = true;
       if (!ctx) return start();
       ctx.resume();
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.linearRampToValueAtTime(LEVEL, ctx.currentTime + 1.5);
     },
     off() {
+      enabled = false;
       if (!ctx) return;
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);

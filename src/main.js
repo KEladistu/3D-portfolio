@@ -1,5 +1,5 @@
 import './style.css';
-import { profile, about, learning, journey, outside, skillsIntro, skills, workshopIntro, workshop, projects } from './data.js';
+import { profile, about, learning, journey, outside, golliath, skillsIntro, skills, workshopIntro, workshop, projects } from './data.js';
 import { createScene } from './scene.js';
 import { createAmbience } from './audio.js';
 
@@ -38,6 +38,12 @@ const pages = {
     <h2>Life outside code</h2>
     <p>${outside.intro}</p>
     <h3>Things I love</h3>${tags(outside.hobbies)}`,
+  golliath: () => `
+    <p class="kicker">Woof</p>
+    <h2>Golliath</h2>
+    <p>${golliath.intro}</p>
+    <h3>Quick facts</h3>${tags(golliath.facts)}
+    <ul class="links"><li><a href="${golliath.game}" target="_blank" rel="noopener">Play the Golliath game <small>↗</small></a></li></ul>`,
   skills: () => `
     <p class="kicker">By the fire</p>
     <h2>What I build with</h2>
@@ -70,6 +76,7 @@ const pages = {
     </ul>`,
 };
 
+const ambience = createAmbience();
 const world = createScene($('#webgl'), { onPick: open });
 
 const areaOf = (key) => world.hotspots.find((h) => h.key === key)?.area;
@@ -94,6 +101,7 @@ function goTo(area, then) {
 }
 
 function open(key) {
+  if (key === 'golliath') ambience.bark();
   if (key === 'cabin') return goTo('inside');
   if (!pages[key]) return close();
   goTo(areaOf(key), () => {
@@ -143,7 +151,6 @@ world.hotspots.forEach((h) => {
 })();
 
 // ambience
-const ambience = createAmbience();
 $('#sound').onclick = (e) => {
   const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
   e.currentTarget.setAttribute('aria-pressed', on);

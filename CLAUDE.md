@@ -13,6 +13,7 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
 | Woodshed (with a tiny server rack) | `workshop` | DevOps & cloud tooling |
 | Signpost | `projects` | Projects |
 | Mailbox | `contact` | Contact links |
+| Golliath (Kenneth's apricot toy poodle, walks a waypoint loop `PATH`) | `golliath` | About the dog + link to his game; barks if sound is on |
 
 **Inside the cabin** (area `inside`; the room is built at `ROOM` = x 200, far from the clearing, and the camera teleports there behind a fade). A "Step outside" button and Esc return to the clearing.
 
@@ -39,6 +40,7 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
   - `hotspot(key, label, group, labelY, view, area)` registers a clickable object. `view = { pos, target }` is the close-up camera shot (world coords; use `at(x, y, z)` for room-local coords). `area` is `'outside'` or `'inside'`.
   - `setArea(area)` teleports between the clearing and the interior; `main.js` calls it via `goTo(area, then)` behind the `#fade` overlay.
   - `buildRoom()` builds the interior (logs, fireplace, bookshelf, armchair, painting via `deerTexture()`).
+  - `buildPoodle()` builds Golliath (pom-pom low-poly); `updateDog()` walks him. A sleeping copy lies on the room rug. A hotspot `view` may be a function (used for the moving dog).
   - Builders at the bottom of the file: `buildCabin`, `buildCampfire`, `buildShed`, `buildSignpost`, `buildMailbox`.
   - The color palette lives in the `C` object at the top.
   - When a panel is open, `applyViewOffset()` shifts the camera frustum so the focused object isn't covered by the panel (right side on desktop, bottom on mobile).

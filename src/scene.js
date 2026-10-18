@@ -170,6 +170,24 @@ export function createScene(canvas, { onPick }) {
   inside('painting', 'Life outside code', room.painting, 0.75, [1.6, 1.85, -0.4], [4.4, 1.85, -0.5]);
 
   // ── Trees ─────────────────────────────────────────────────────
+  // ── Golliath ─────────────────────────────────────────────────
+  // He trots a loop around the cabin (waypoints ordered by angle so he never cuts through it).
+  const PATH = [[0.3, 4.6], [2.4, 4.4], [3.7, 2.1], [5.0, 0.6], [2.8, -3.6], [-0.5, -3.8], [-3.6, -2.6], [-3.9, 1.2], [-2.4, 3.6]];
+  const dog = buildPoodle();
+  dog.group.position.set(PATH[0][0], 0, PATH[0][1]);
+  const walk = { i: 0, dir: 1, wait: 1.5, heading: 0, phase: 0 };
+  hotspot('golliath', 'Golliath', dog.group, 0.95, () => {
+    const p = dog.group.position, h = dog.group.rotation.y;
+    const fx = Math.sin(h), fz = Math.cos(h);
+    return { pos: [p.x + fx * 1.9 - fz * 0.5, 0.95, p.z + fz * 1.9 + fx * 0.5], target: [p.x, 0.35, p.z] };
+  });
+
+  const sleepy = buildPoodle();
+  sleepy.lieDown();
+  sleepy.group.position.set(-0.7, 0, -1.6);
+  sleepy.group.rotation.y = 0.9;
+  room.group.add(sleepy.group);
+
   const trees = [];
   const avoid = [[0, 0, 5.5], [4.6, 4.2, 2], [5.6, -2.4, 2.4], [-3.6, 4.6, 1.5], [1, 7, 2.5], [0, 10, 3]];
   let tries = 0;
@@ -259,7 +277,7 @@ export function createScene(canvas, { onPick }) {
   // ── Interaction ───────────────────────────────────────────────
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2(9, 9);
-  let hovered = null, downAt = null, focused = null;
+  let hovered = null, downAt = null, focused = null, focusedView = null;
 
   canvas.addEventListener('pointermove', (e) => {
     mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
@@ -314,7 +332,8 @@ export function createScene(canvas, { onPick }) {
 
   function focus(key) {
     focused = hotspots.find((h) => h.key === key && h.area === area) ?? null;
-    flyTo(focused ? focused.view : homeOf(), focused ? 1 : 0, area === 'inside' ? 1.2 : 1.6);
+    if (focused) focusedView = typeof focused.view === 'function' ? focused.view() : focused.view;
+    flyTo(focused ? focusedView : homeOf(), focused ? 1 : 0, area === 'inside' ? 1.2 : 1.6);
   }
 
   // Teleport between the clearing and the cabin interior (call while the screen is faded out).
@@ -343,6 +362,40 @@ export function createScene(canvas, { onPick }) {
     hemi.intensity = inRoom ? 0.35 : 0.9;
     hemi.color.setHex(inRoom ? 0xffd2a0 : 0x8090c0);
     controls.update();
+  }
+
+  function updateDog(dt, t) {
+    const g = dog.group;
+    let moving = false;
+    if (focused?.key === 'golliath') {
+      // stop and look at the visitor
+      const want = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
+      g.rotation.y += Math.atan2(Math.sin(want - g.rotation.y), Math.cos(want - g.rotation.y)) * 0.08;
+    } else if (walk.wait > 0) {
+      walk.wait -= dt;
+    } else {
+      const [tx, tz] = PATH[walk.i];
+      const dx = tx - g.position.x, dz = tz - g.position.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.08) {
+        if (Math.random() < 0.3) walk.wait = 1 + Math.random() * 2.5; // stop and sniff
+        if (Math.random() < 0.12) walk.dir *= -1;
+        walk.i = (walk.i + walk.dir + PATH.length) % PATH.length;
+      } else {
+        const want = Math.atan2(dx, dz);
+        g.rotation.y += Math.atan2(Math.sin(want - g.rotation.y), Math.cos(want - g.rotation.y)) * Math.min(1, dt * 6);
+        const step = Math.min(d, dt * 0.9);
+        g.position.x += Math.sin(g.rotation.y) * step;
+        g.position.z += Math.cos(g.rotation.y) * step;
+        moving = true;
+      }
+    }
+    walk.phase += dt * (moving ? 11 : 0);
+    const swing = moving ? Math.sin(walk.phase) * 0.6 : 0;
+    dog.legs.forEach((l, i) => (l.rotation.x += ((i === 0 || i === 3 ? swing : -swing) - l.rotation.x) * 0.3));
+    dog.body.position.y = moving ? Math.abs(Math.sin(walk.phase)) * 0.025 : 0;
+    dog.tail.rotation.z = Math.sin(t * (moving || focused?.key === 'golliath' ? 14 : 4)) * 0.45;
+    dog.head.rotation.x = !moving && walk.wait > 0 && focused?.key !== 'golliath' ? 0.45 : 0; // sniffing
   }
 
   // ── Loop ──────────────────────────────────────────────────────
@@ -378,6 +431,7 @@ export function createScene(canvas, { onPick }) {
       room.light.intensity = 7 * f;
       room.flames.forEach((fl, i) => { fl.scale.y = 0.85 + Math.sin(t * (8 + i * 2.3) + i) * 0.2; fl.rotation.y += dt * (1 + i); });
       room.candles.forEach((c, i) => c.scale.setScalar(0.9 + Math.sin(t * (11 + i)) * 0.1));
+      sleepy.body.scale.y = 1 + Math.sin(t * 1.6) * 0.03;
     } else {
       fire.light.intensity = 9 * f;
       fire.flames.forEach((fl, i) => {
@@ -407,14 +461,15 @@ export function createScene(canvas, { onPick }) {
         ffPos[i * 3 + 2] = b.z + Math.cos(t * b.s * 0.8 + b.p) * 0.8;
       });
       ffGeo.attributes.position.needsUpdate = true;
+      updateDog(dt, t);
       fireflies.material.opacity = 0.7 + Math.sin(t * 2) * 0.3;
     }
 
     // gentle "breathing" parallax while focused so the close-up doesn't feel frozen
     if (focused && !tween?.isActive()) {
       const amp = area === 'inside' ? 0.4 : 1;
-      camera.position.x += (THREE.MathUtils.clamp(mouse.x, -1, 1) * 0.25 * amp + focused.view.pos[0] - camera.position.x) * 0.03;
-      camera.position.y += (THREE.MathUtils.clamp(mouse.y, -1, 1) * 0.15 * amp + focused.view.pos[1] - camera.position.y) * 0.03;
+      camera.position.x += (THREE.MathUtils.clamp(mouse.x, -1, 1) * 0.25 * amp + focusedView.pos[0] - camera.position.x) * 0.03;
+      camera.position.y += (THREE.MathUtils.clamp(mouse.y, -1, 1) * 0.15 * amp + focusedView.pos[1] - camera.position.y) * 0.03;
     }
 
     controls.update();
@@ -866,4 +921,71 @@ function deerTexture() {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+// Golliath — a fluffy apricot toy poodle built from pom-poms. Faces +z.
+function buildPoodle() {
+  const group = new THREE.Group();
+  const body = new THREE.Group();
+  group.add(body);
+  const fur = std(0xe2a26b), furDark = std(0xc98552), dark = std(0x1c1512, { roughness: 0.4 });
+  const puff = (r, x, y, z, mat = fur, parent = body) => {
+    const m = mesh(new THREE.IcosahedronGeometry(r, 1), mat, x, y, z);
+    parent.add(m);
+    return m;
+  };
+
+  // torso
+  puff(0.15, 0, 0.33, -0.1);
+  puff(0.16, 0, 0.35, 0.06);
+  puff(0.15, 0, 0.36, 0.17);
+
+  // head
+  const head = new THREE.Group();
+  head.position.set(0, 0.5, 0.25);
+  body.add(head);
+  puff(0.13, 0, 0.04, 0.02, fur, head);
+  puff(0.1, 0, 0.14, -0.01, fur, head); // topknot
+  const muzzle = mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.12, 8), furDark, 0, 0, 0.13);
+  muzzle.rotation.x = Math.PI / 2;
+  head.add(muzzle);
+  head.add(mesh(new THREE.SphereGeometry(0.025, 8, 6), dark, 0, 0.01, 0.2));
+  for (const x of [-0.05, 0.05]) head.add(mesh(new THREE.SphereGeometry(0.018, 8, 6), dark, x, 0.06, 0.11));
+  for (const x of [-0.12, 0.12]) {
+    const ear = puff(0.065, x, -0.03, 0, furDark, head);
+    ear.scale.set(0.8, 1.7, 0.8);
+  }
+
+  // legs (pivot at the hip so they can swing)
+  const legs = [[-0.08, 0.15], [0.08, 0.15], [-0.08, -0.12], [0.08, -0.12]].map(([x, z]) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, 0.28, z);
+    pivot.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.22, 6), fur, 0, -0.12, 0));
+    const foot = mesh(new THREE.IcosahedronGeometry(0.055, 1), fur, 0, -0.24, 0.01);
+    foot.scale.y = 0.8;
+    pivot.add(foot);
+    body.add(pivot);
+    return pivot;
+  });
+
+  // tail with a pom-pom
+  const tail = new THREE.Group();
+  tail.position.set(0, 0.42, -0.22);
+  tail.rotation.x = -0.5;
+  tail.add(mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.14, 6), fur, 0, 0.07, 0));
+  puff(0.07, 0, 0.16, 0, fur, tail);
+  body.add(tail);
+
+  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+
+  // curled up asleep: legs tucked, head resting low
+  function lieDown() {
+    body.position.y = -0.18;
+    legs.forEach((l) => (l.rotation.x = Math.PI / 2.2));
+    head.position.set(0.08, 0.42, 0.24);
+    head.rotation.set(0.35, 0.5, 0);
+    tail.rotation.set(-1.2, 0, 0.6);
+  }
+
+  return { group, body, head, legs, tail, lieDown };
 }

@@ -64,6 +64,12 @@ export const outside = {
   hobbies: ['Traveling & exploring other countries', 'Singing', 'Card games', 'Pokémon games', 'Golliath, my apricot toy poodle', 'Making small games'],
 };
 
+export const golliath = {
+  intro: 'Head of security, chief morale officer and the star of his own browser game. Golliath is my apricot toy poodle — he patrols the cabin all day and naps by the fire at night.',
+  facts: ['Breed: toy poodle', 'Color: apricot', 'Favorite things: treats, rope toys, barking at nothing'],
+  game: 'https://keladistu.github.io/Golliath/',
+};
+
 // ── Outside ──────────────────────────────────────
 export const skillsIntro = 'The tools I use to build the product itself — interface, API, data and the robots behind it.';
 export const skills = [
