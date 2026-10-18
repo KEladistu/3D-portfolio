@@ -273,9 +273,27 @@ export function createScene(canvas, { onPick }) {
   let tween;
   // 0 → object centered; 1 → object centered in the space left free by the panel
   const frame = { shift: 0 };
+  // Orbit limits only apply while the user is free-looking; close-ups and transitions ignore them,
+  // otherwise OrbitControls clamps the camera into the object it's flying to.
+  const LIMITS = {
+    outside: { minDistance: 6, maxDistance: 28, minPolarAngle: Math.PI * 0.18, maxPolarAngle: Math.PI * 0.46, minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity, enableZoom: true, rotateSpeed: 1, dampingFactor: 0.05 },
+    inside: { minDistance: 0.05, maxDistance: 0.6, minPolarAngle: Math.PI * 0.36, maxPolarAngle: Math.PI * 0.6, minAzimuthAngle: -1.25, maxAzimuthAngle: 1.25, enableZoom: false, rotateSpeed: 0.3, dampingFactor: 0.06 },
+    free: { minDistance: 0, maxDistance: Infinity, minPolarAngle: 0, maxPolarAngle: Math.PI, minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity },
+  };
+
   function flyTo(view, shift, dur = 1.6) {
     tween?.kill();
-    tween = gsap.timeline()
+    Object.assign(controls, LIMITS.free);
+    controls.enabled = false;
+    controls.autoRotate = false;
+    tween = gsap.timeline({
+      onComplete: () => {
+        if (focused) return;
+        Object.assign(controls, LIMITS[area]);
+        controls.enabled = true;
+        controls.autoRotate = area === 'outside';
+      },
+    })
       .to(camera.position, { x: view.pos[0], y: view.pos[1], z: view.pos[2], duration: dur, ease: 'power3.inOut' }, 0)
       .to(controls.target, { x: view.target[0], y: view.target[1], z: view.target[2], duration: dur, ease: 'power3.inOut' }, 0)
       .to(frame, { shift, duration: dur, ease: 'power3.inOut' }, 0);
@@ -296,15 +314,12 @@ export function createScene(canvas, { onPick }) {
 
   function focus(key) {
     focused = hotspots.find((h) => h.key === key && h.area === area) ?? null;
-    controls.autoRotate = !focused && area === 'outside';
-    controls.enabled = !focused;
     flyTo(focused ? focused.view : homeOf(), focused ? 1 : 0, area === 'inside' ? 1.2 : 1.6);
   }
 
   // Teleport between the clearing and the cabin interior (call while the screen is faded out).
   // Walk toward the cabin door while the screen fades out.
   function approach() {
-    controls.autoRotate = false;
     flyTo({ pos: [0, 1.7, 5.2], target: [0, 1.4, 1.6] }, 0, 0.9);
   }
 
@@ -315,9 +330,6 @@ export function createScene(canvas, { onPick }) {
     frame.shift = 0;
     const home = homeOf();
     const inRoom = area === 'inside';
-    Object.assign(controls, inRoom
-      ? { minDistance: 0.05, maxDistance: 0.6, minPolarAngle: Math.PI * 0.36, maxPolarAngle: Math.PI * 0.6, minAzimuthAngle: -1.25, maxAzimuthAngle: 1.25, enableZoom: false, rotateSpeed: 0.3, dampingFactor: 0.06, autoRotate: false, enabled: true }
-      : { minDistance: 6, maxDistance: 28, minPolarAngle: Math.PI * 0.18, maxPolarAngle: Math.PI * 0.46, minAzimuthAngle: -Infinity, maxAzimuthAngle: Infinity, enableZoom: true, rotateSpeed: 1, dampingFactor: 0.05, autoRotate: true, enabled: true });
 
     // only draw the world you're in — the forest isn't rendered at all while inside
     scene.children.forEach((c) => { if (c !== hemi) c.visible = c === room.group ? inRoom : !inRoom; });
