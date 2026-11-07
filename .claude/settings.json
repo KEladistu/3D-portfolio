@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/stop-check.sh",
+            "timeout": 300,
+            "statusMessage": "Running npm run check…"
+          }
+        ]
+      }
+    ]
+  }
+}
