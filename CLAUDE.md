@@ -30,7 +30,28 @@ Interactive 3D portfolio for Kenneth Eladistu (full-stack, DevOps & cloud). The 
 
 - Vite 5 + vanilla JS (ES modules), three.js, gsap. No framework and no TypeScript.
 - `npm run dev`: dev server at http://localhost:5173
-- `npm run build`: production build to `dist/`. Run it to verify changes compile before committing.
+- `npm run build`: production build to `dist/`.
+- `npm run lint` (ESLint) · `npm run typecheck` (tsc checkJs over `src/`) · `npm run test` (Vitest, `tests/`)
+- **`npm run check`**: runs all four. The Claude Code Stop hook (`.claude/settings.json` → `.claude/hooks/stop-check.sh`) and CI run this same command.
+
+More detail: [docs/architecture.md](docs/architecture.md) · [docs/deployment.md](docs/deployment.md)
+
+## Definition of done
+
+Before saying a task is done:
+1. `npm run check` passes (lint, typecheck, tests, build). The Stop hook enforces this whenever files changed.
+2. New features or bug fixes come with a new or updated test where the behavior is testable (content, pages, wiring). 3D visuals aren't unit-testable, so check them with a headless Chrome screenshot (desktop 1440×900 and phone 390×844) when the change is visual.
+3. Each feature is its own conventional commit, pushed to `main` (CI then deploys).
+4. Report honestly what was verified and what wasn't (for example "not tested on a real phone").
+
+## Stop and ask Kenneth first
+
+- **Personal information:** never publish a phone number, home address, or the résumé PDF (it contains the phone number) without explicit approval. Tests also guard against a phone number in `data.js`.
+- **Claims about his work:** don't invent experience, metrics, employers or certifications. Ask, or mark placeholders clearly.
+- **Destructive or irreversible git:** force-push, history rewrites, deleting branches or files that aren't yours to remove.
+- **Deployment and hosting:** changing `.github/workflows/`, GitHub Pages settings, the repo name, or custom domain/DNS.
+- **New dependencies** beyond small dev tools, or anything that sends data to a third party (analytics, forms, trackers).
+- **Third-party 3D models or assets:** confirm the license (CC0/CC-BY) first.
 
 ## Structure
 
