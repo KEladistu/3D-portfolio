@@ -11,7 +11,10 @@ $('#role').textContent = profile.role;
 
 
 const ambience = createAmbience();
-const world = createScene($('#webgl'), { onPick: open });
+const world = createScene($('#webgl'), {
+  onPick: open,
+  onDogs: (event) => event === 'spar-start' && ambience.growl(),
+});
 
 const areaOf = (key) => world.hotspots.find((h) => h.key === key)?.area;
 let busy = false;
@@ -36,6 +39,7 @@ function goTo(area, then) {
 
 function open(key) {
   if (key === 'golliath') ambience.bark();
+  if (key === 'blk') ambience.bark(0.85);
   if (key === 'cabin') return goTo('inside');
   if (!pages[key]) return close();
   goTo(areaOf(key), () => {

@@ -118,15 +118,15 @@ export function createAmbience() {
   }
 
   // a small, friendly toy-poodle "arf"
-  function bark() {
+  function bark(pitch = 1) {
     const t = ctx.currentTime;
     [0, 0.17].forEach((at) => {
       const osc = ctx.createOscillator();
       const bp = ctx.createBiquadFilter();
       const g = ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(720, t + at);
-      osc.frequency.exponentialRampToValueAtTime(430, t + at + 0.1);
+      osc.frequency.setValueAtTime(720 * pitch, t + at);
+      osc.frequency.exponentialRampToValueAtTime(430 * pitch, t + at + 0.1);
       bp.type = 'bandpass';
       bp.frequency.value = 1100;
       bp.Q.value = 1.2;
@@ -141,8 +141,41 @@ export function createAmbience() {
     });
   }
 
+  // two small dogs grumbling at each other: low buzzy growls with a rumbling tremolo,
+  // plus a couple of little snaps. Kept quiet and short so it stays funny, not scary.
+  function growl(seconds = 3.2) {
+    const t = ctx.currentTime;
+    [[105, 0], [132, 0.25]].forEach(([freq, delay]) => {
+      const osc = ctx.createOscillator();
+      const lp = ctx.createBiquadFilter();
+      const g = ctx.createGain();
+      const trem = ctx.createOscillator();
+      const tremDepth = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, t + delay);
+      osc.frequency.linearRampToValueAtTime(freq * 1.15, t + delay + seconds * 0.5);
+      osc.frequency.linearRampToValueAtTime(freq * 0.95, t + seconds);
+      lp.type = 'lowpass';
+      lp.frequency.value = 520;
+      trem.frequency.value = 22 + Math.random() * 6;
+      tremDepth.gain.value = 0.025;
+      trem.connect(tremDepth).connect(g.gain);
+      g.gain.setValueAtTime(0, t + delay);
+      g.gain.linearRampToValueAtTime(0.045, t + delay + 0.25);
+      g.gain.setValueAtTime(0.045, t + seconds - 0.4);
+      g.gain.linearRampToValueAtTime(0, t + seconds);
+      osc.connect(lp).connect(g).connect(master);
+      osc.start(t + delay);
+      trem.start(t + delay);
+      osc.stop(t + seconds + 0.05);
+      trem.stop(t + seconds + 0.05);
+    });
+    timers.push(setTimeout(() => bark(1.25), seconds * 350), setTimeout(() => bark(0.85), seconds * 700));
+  }
+
   return {
-    bark() { if (enabled) bark(); },
+    bark(pitch) { if (enabled) bark(pitch); },
+    growl(seconds) { if (enabled) growl(seconds); },
     on() {
       enabled = true;
       if (!ctx) return start();

@@ -1,5 +1,5 @@
 // Panel content for every clickable object. Pure functions of data.js, so they can be unit-tested.
-import { profile, about, learning, journey, outside, golliath, skillsIntro, skills, workshopIntro, workshop, projects } from './data.js';
+import { profile, about, learning, journey, outside, golliath, blk, skillsIntro, skills, workshopIntro, workshop, projects } from './data.js';
 
 const tags = (items) => `<div class="tags">${items.map((i) => `<span>${i}</span>`).join('')}</div>`;
 const groups = (list) => list.map((g) => `<h3>${g.group}</h3>${tags(g.items)}`).join('');
@@ -37,6 +37,11 @@ export const pages = {
     <p>${golliath.intro}</p>
     <h3>Quick facts</h3>${tags(golliath.facts)}
     <ul class="links"><li><a href="${golliath.game}" target="_blank" rel="noopener">Play the Golliath game <small>↗</small></a></li></ul>`,
+  blk: () => `
+    <p class="kicker">Zoom</p>
+    <h2>Blk</h2>
+    <p>${blk.intro}</p>
+    <h3>Quick facts</h3>${tags(blk.facts)}`,
   skills: () => `
     <p class="kicker">By the fire</p>
     <h2>What I build with</h2>

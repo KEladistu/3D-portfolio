@@ -70,6 +70,11 @@ export const golliath = {
   game: 'https://keladistu.github.io/Golliath/',
 };
 
+export const blk = {
+  intro: 'Golliath’s little brother: same fluffy toy-poodle shape, but jet black and twice the speed. Blk runs laps around the cabin — and every so often the two brothers bump into each other and spin in circles, growling, before running off again.',
+  facts: ['Breed: toy poodle', 'Color: black', 'Speed: always running'],
+};
+
 // ── Outside ──────────────────────────────────────
 export const skillsIntro = 'The tools I use to build the product itself — interface, API, data and the robots behind it.';
 export const skills = [

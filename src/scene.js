@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import gsap from 'gsap';
+import { createDog, createPack, stepPack } from './dogs.js';
 
 const HOME = { pos: [13, 7.5, 15], target: [0, 1.2, 0] };
 // The cabin interior lives far away from the clearing; we teleport the camera there.
@@ -29,7 +30,7 @@ const mesh = (geo, mat, x = 0, y = 0, z = 0) => {
 // Phones/tablets get a lighter scene: lower resolution, smaller shadow map, fewer trees.
 const MOBILE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 700;
 
-export function createScene(canvas, { onPick }) {
+export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE || devicePixelRatio < 2, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1.5 : 1.75));
   renderer.setSize(innerWidth, innerHeight);
@@ -177,25 +178,34 @@ export function createScene(canvas, { onPick }) {
   inside('painting', 'Life outside code', room.painting, 0.75, [1.6, 1.85, -0.4], [4.4, 1.85, -0.5]);
 
   // ── Trees ─────────────────────────────────────────────────────
-  // ── Golliath ─────────────────────────────────────────────────
-  // He trots a loop around the cabin (waypoints ordered by angle so he never cuts through it).
-  const PATH = [[0.3, 4.6], [2.4, 4.4], [3.7, 2.1], [5.0, 0.6], [2.8, -3.6], [-0.5, -3.8], [-3.6, -2.6], [-3.9, 1.2], [-2.4, 3.6]];
-  const dog = buildPoodle();
-  dog.group.userData.noMerge = true;
-  dog.group.position.set(PATH[0][0], 0, PATH[0][1]);
-  const walk = { i: 0, dir: 1, wait: 1.5, heading: 0, phase: 0 };
-  hotspot('golliath', 'Golliath', dog.group, 0.95, () => {
-    const p = dog.group.position, h = dog.group.rotation.y;
+  // ── Golliath & Blk ───────────────────────────────────────────
+  // Behavior lives in dogs.js (unit-tested); here we only build and pose the meshes.
+  const pack = createPack([createDog('golliath', { start: 0, dir: 1, speed: 0.9 }), createDog('blk', { start: 4, dir: -1, speed: 1.5 })]);
+  const dogs = pack.dogs.map((d) => {
+    const model = buildPoodle(d.name === 'blk' ? COATS.blk : COATS.apricot);
+    model.group.userData.noMerge = true;
+    model.group.position.set(d.x, 0, d.z);
+    return { state: d, model, phase: Math.random() * 6 };
+  });
+  const dogView = (model) => () => {
+    const p = model.group.position, h = model.group.rotation.y;
     const fx = Math.sin(h), fz = Math.cos(h);
     return { pos: [p.x + fx * 1.9 - fz * 0.5, 0.95, p.z + fz * 1.9 + fx * 0.5], target: [p.x, 0.35, p.z] };
-  });
+  };
+  hotspot('golliath', 'Golliath', dogs[0].model.group, 0.95, dogView(dogs[0].model));
+  hotspot('blk', 'Blk', dogs[1].model.group, 0.95, dogView(dogs[1].model));
 
   const sleepy = buildPoodle();
   sleepy.lieDown();
   sleepy.group.position.set(-0.7, 0, -1.6);
   sleepy.group.rotation.y = 0.9;
   room.group.add(sleepy.group);
-  mergeStatic(room.group, [room.chair, room.shelf, room.fireplace, room.painting, sleepy.group]);
+  const sleepyBlk = buildPoodle(COATS.blk);
+  sleepyBlk.lieDown();
+  sleepyBlk.group.position.set(-0.05, 0, -1.95);
+  sleepyBlk.group.rotation.y = -2.3; // curled up nose-to-nose with his brother
+  room.group.add(sleepyBlk.group);
+  mergeStatic(room.group, [room.chair, room.shelf, room.fireplace, room.painting, sleepy.group, sleepyBlk.group]);
 
   const trees = [];
   const avoid = [[0, 0, 5.5], [4.6, 4.2, 2], [5.6, -2.4, 2.4], [-3.6, 4.6, 1.5], [1, 7, 2.5], [0, 10, 3]];
@@ -394,40 +404,34 @@ export function createScene(canvas, { onPick }) {
     controls.update();
   }
 
-  function updateDog(dt, t) {
-    const g = dog.group;
-    let moving = false;
-    if (focused?.key === 'golliath') {
-      // stop and look at the visitor
-      const want = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
-      g.rotation.y += Math.atan2(Math.sin(want - g.rotation.y), Math.cos(want - g.rotation.y)) * 0.08;
-    } else if (walk.wait > 0) {
-      walk.wait -= dt;
-    } else {
-      const [tx, tz] = PATH[walk.i];
-      const dx = tx - g.position.x, dz = tz - g.position.z;
-      const d = Math.hypot(dx, dz);
-      if (d < 0.08) {
-        if (Math.random() < 0.3) walk.wait = 1 + Math.random() * 2.5; // stop and sniff
-        if (Math.random() < 0.12) walk.dir *= -1;
-        walk.i = (walk.i + walk.dir + PATH.length) % PATH.length;
+  function updateDogs(dt, t) {
+    const frozen = new Set(focused && (focused.key === 'golliath' || focused.key === 'blk') ? [focused.key] : []);
+    stepPack(pack, dt, { frozen }).forEach((e) => onDogs(e));
+    for (const d of dogs) {
+      const { state: s, model: m } = d;
+      const g = m.group;
+      g.position.x = s.x;
+      g.position.z = s.z;
+      if (frozen.has(s.name)) {
+        // stop and look at the visitor
+        const want = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
+        g.rotation.y += Math.atan2(Math.sin(want - g.rotation.y), Math.cos(want - g.rotation.y)) * 0.08;
       } else {
-        const want = Math.atan2(dx, dz);
-        g.rotation.y += Math.atan2(Math.sin(want - g.rotation.y), Math.cos(want - g.rotation.y)) * Math.min(1, dt * 6);
-        const step = Math.min(d, dt * 0.9);
-        g.position.x += Math.sin(g.rotation.y) * step;
-        g.position.z += Math.cos(g.rotation.y) * step;
-        moving = true;
+        g.rotation.y = s.heading;
       }
+      const looked = frozen.has(s.name);
+      d.phase += dt * (s.sparring ? 18 : s.moving ? 6 + s.speed * 6 : 0);
+      const swing = s.moving ? Math.sin(d.phase) * (s.sparring ? 0.8 : 0.6) : 0;
+      m.legs.forEach((l, i) => (l.rotation.x += ((i === 0 || i === 3 ? swing : -swing) - l.rotation.x) * 0.3));
+      m.body.position.y = s.moving ? Math.abs(Math.sin(d.phase)) * (s.sparring ? 0.04 : 0.025) : 0;
+      m.tail.rotation.z = Math.sin(t * (s.sparring ? 22 : s.moving || looked ? 14 : 4)) * 0.45;
+      m.tongue.visible = looked;
+      // sniffing: head down; squabbling: head low and forward, little snarl shakes
+      m.head.rotation.x = s.sparring ? 0.3 + Math.sin(t * 30) * 0.06 : s.sniffing && !looked ? 0.45 : 0;
+      m.head.rotation.y = s.sparring ? Math.sin(t * 24) * 0.12 : 0;
     }
-    walk.phase += dt * (moving ? 11 : 0);
-    const swing = moving ? Math.sin(walk.phase) * 0.6 : 0;
-    dog.legs.forEach((l, i) => (l.rotation.x += ((i === 0 || i === 3 ? swing : -swing) - l.rotation.x) * 0.3));
-    dog.body.position.y = moving ? Math.abs(Math.sin(walk.phase)) * 0.025 : 0;
-    dog.tail.rotation.z = Math.sin(t * (moving || focused?.key === 'golliath' ? 14 : 4)) * 0.45;
-    dog.tongue.visible = focused?.key === 'golliath';
-    dog.head.rotation.x = !moving && walk.wait > 0 && focused?.key !== 'golliath' ? 0.45 : 0; // sniffing
   }
+
 
   // ── Loop ──────────────────────────────────────────────────────
   const clock = new THREE.Clock();
@@ -467,6 +471,7 @@ export function createScene(canvas, { onPick }) {
       room.flames.forEach((fl, i) => { fl.scale.y = 0.85 + Math.sin(t * (8 + i * 2.3) + i) * 0.2; fl.rotation.y += dt * (1 + i); });
       room.candles.forEach((c, i) => c.scale.setScalar(0.9 + Math.sin(t * (11 + i)) * 0.1));
       sleepy.body.scale.y = 1 + Math.sin(t * 1.6) * 0.03;
+      sleepyBlk.body.scale.y = 1 + Math.sin(t * 1.4 + 1) * 0.03;
     } else {
       fire.light.intensity = 9 * f;
       fire.flames.forEach((fl, i) => {
@@ -496,7 +501,7 @@ export function createScene(canvas, { onPick }) {
         ffPos[i * 3 + 2] = b.z + Math.cos(t * b.s * 0.8 + b.p) * 0.8;
       });
       ffGeo.attributes.position.needsUpdate = true;
-      updateDog(dt, t);
+      updateDogs(dt, t);
       fireflies.material.opacity = 0.7 + Math.sin(t * 2) * 0.3;
     }
 
@@ -990,11 +995,17 @@ function deerTexture() {
 
 // Golliath — a fluffy apricot toy poodle built from pom-poms, matched to his game sprite
 // (golliath-sprite-studio palette). Faces +z.
-function buildPoodle() {
+// Coat colors from golliath-sprite-studio: "apricot" (Golliath) and "shadow" (his black brother Blk).
+const COATS = {
+  apricot: { fur: 0xe9cfa6, ears: 0xd3ae7f, light: 0xf8ecd6 },
+  blk: { fur: 0x4a4643, ears: 0x37332f, light: 0x6d6a68 },
+};
+
+function buildPoodle(coat = COATS.apricot) {
   const group = new THREE.Group();
   const body = new THREE.Group();
   group.add(body);
-  const fur = std(0xe9cfa6), ears = std(0xd3ae7f), light = std(0xf8ecd6);
+  const fur = std(coat.fur), ears = std(coat.ears), light = std(coat.light);
   const ink = std(0x20180f, { roughness: 0.3 }), nose = std(0x241c16, { roughness: 0.3 });
   const puff = (r, x, y, z, mat = fur, parent = body) => {
     const m = mesh(new THREE.IcosahedronGeometry(r, 1), mat, x, y, z);
