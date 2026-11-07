@@ -1,6 +1,7 @@
 // Procedural cozy ambience: soft fireplace, gentle crickets and a slow music-box melody — no audio files.
 export function createAmbience() {
-  let ctx, master, echo, enabled = false, timers = [];
+  let ctx, master, echo, enabled = false;
+  const timers = [];
   const LEVEL = 0.5;
 
   function noiseBuffer(seconds = 3) {
