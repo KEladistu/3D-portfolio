@@ -42,10 +42,10 @@ export function createScene(canvas, { onPick }) {
   scene.fog = new THREE.Fog(0x2a2c3d, 18, 55);
 
   const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 300);
-  camera.position.set(...HOME.pos);
+  camera.position.fromArray(HOME.pos);
 
   const controls = new OrbitControls(camera, canvas);
-  controls.target.set(...HOME.target);
+  controls.target.fromArray(HOME.target);
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.minDistance = 6;
@@ -279,7 +279,7 @@ export function createScene(canvas, { onPick }) {
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       model.scale.setScalar(5 / Math.max(size.x, size.z));
-      model.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
+      model.traverse((o) => { if (o instanceof THREE.Mesh) { o.castShadow = o.receiveShadow = true; } });
       cabin.clear();
       cabin.add(model);
     });
@@ -519,7 +519,7 @@ export function createScene(canvas, { onPick }) {
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  camera.position.set(...outsideHome().pos);
+  camera.position.fromArray(outsideHome().pos);
   tick();
   return { focus, setArea, approach, hotspots, labelPositions, get area() { return area; } };
 }
@@ -811,7 +811,7 @@ function buildRoom() {
   walls.forEach((w, wi) => {
     for (let i = 0; i < 10; i++) {
       const l = mesh(new THREE.CylinderGeometry(R, R, w.len, 8), logMats[(i + wi) % 3], ...w.pos(R + i * R * 2));
-      l.rotation.set(...w.rot);
+      l.rotation.set(w.rot[0], w.rot[1], w.rot[2]);
       group.add(l);
     }
   });
@@ -1053,7 +1053,7 @@ function buildPoodle() {
   puff(0.07, 0, 0.16, 0, fur, tail);
   body.add(tail);
 
-  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  group.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = true; });
 
   // curled up asleep: legs tucked, head resting low, eyes closed
   function lieDown() {

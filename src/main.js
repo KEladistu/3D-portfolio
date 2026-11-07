@@ -120,7 +120,7 @@ function close() {
 const navItems = [['chair', 'About'], ['skills', 'Skills'], ['workshop', 'DevOps'], ['projects', 'Projects'], ['contact', 'Contact']];
 $('#nav').innerHTML = navItems.map(([k, l]) => `<button data-go="${k}">${l}</button>`).join('');
 document.addEventListener('click', (e) => {
-  const go = e.target.closest('[data-go]')?.dataset.go;
+  const go = /** @type {HTMLElement} */ (e.target).closest('[data-go]')?.getAttribute('data-go');
   if (go) go === 'home' ? goTo('outside', close) : open(go);
 });
 $('#close').onclick = close;
