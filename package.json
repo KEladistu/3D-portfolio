@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc -p jsconfig.json"
+    "typecheck": "tsc -p jsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "gsap": "^3.12.5",
@@ -19,7 +22,6 @@
     "@types/three": "^0.169.0",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
-    "jsdom": "^25.0.1",
     "typescript": "^5.9.3",
     "vite": "^5.4.10",
     "vitest": "^2.1.9"
