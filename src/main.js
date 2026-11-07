@@ -3,6 +3,7 @@ import { profile } from './data.js';
 import { pages, navItems } from './pages.js';
 import { createScene } from './scene.js';
 import { createAmbience } from './audio.js';
+import { isTheme } from './themes.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -86,6 +87,28 @@ world.hotspots.forEach((h) => {
   }
   requestAnimationFrame(updateLabels);
 })();
+
+// day / night — night is the default; the visitor's choice is remembered
+const storage = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } } };
+// ?theme=day / ?theme=night in the link wins for that visit (handy for sharing), without being saved
+const linked = new URLSearchParams(location.search).get('theme');
+let theme = isTheme(linked) ? linked : isTheme(storage.get('theme')) ? storage.get('theme') : 'night';
+function applyThemeUI(instant) {
+  const day = theme === 'day';
+  document.body.classList.toggle('day', day);
+  const btn = $('#theme');
+  btn.textContent = day ? '☾' : '☀︎';
+  btn.setAttribute('aria-label', day ? 'Switch to night' : 'Switch to morning');
+  btn.setAttribute('title', day ? 'Switch to night' : 'Switch to morning');
+  world.setTheme(/** @type {'night'|'day'} */ (theme), instant);
+  ambience.setDaytime(day);
+}
+$('#theme').addEventListener('click', () => {
+  theme = theme === 'day' ? 'night' : 'day';
+  storage.set('theme', theme);
+  applyThemeUI(false);
+});
+applyThemeUI(true);
 
 // ambience
 $('#sound').onclick = (e) => {

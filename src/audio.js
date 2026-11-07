@@ -1,6 +1,6 @@
 // Procedural cozy ambience: soft fireplace, gentle crickets and a slow music-box melody — no audio files.
 export function createAmbience() {
-  let ctx, master, echo, enabled = false;
+  let ctx, master, echo, enabled = false, daytime = false;
   const timers = [];
   const LEVEL = 0.5;
 
@@ -64,6 +64,7 @@ export function createAmbience() {
   }
 
   function cricket() {
+    if (daytime) return void timers.push(setTimeout(cricket, 2000));
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
@@ -104,6 +105,31 @@ export function createAmbience() {
     timers.push(setTimeout(note, Math.random() < 0.2 ? 2600 + Math.random() * 2000 : 750 + Math.random() * 500));
   }
 
+  // morning: a few soft songbird phrases (quick sine sweeps), spaced out so it stays calm
+  function bird() {
+    if (!daytime) return void timers.push(setTimeout(bird, 2000));
+    const t0 = ctx.currentTime;
+    const base = 2200 + Math.random() * 1400;
+    const notes = 2 + Math.floor(Math.random() * 4);
+    for (let n = 0; n < notes; n++) {
+      const t = t0 + n * (0.11 + Math.random() * 0.05);
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(base * (0.9 + Math.random() * 0.25), t);
+      osc.frequency.exponentialRampToValueAtTime(base * (1.15 + Math.random() * 0.3), t + 0.07);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.012, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      osc.connect(g);
+      g.connect(master);
+      g.connect(echo);
+      osc.start(t);
+      osc.stop(t + 0.1);
+    }
+    timers.push(setTimeout(bird, 1800 + Math.random() * 4500));
+  }
+
   function start() {
     ctx = new AudioContext();
     master = ctx.createGain();
@@ -114,6 +140,7 @@ export function createAmbience() {
     fireBed();
     crackle();
     cricket();
+    bird();
     timers.push(setTimeout(note, 1500));
   }
 
@@ -174,6 +201,7 @@ export function createAmbience() {
   }
 
   return {
+    setDaytime(isDay) { daytime = isDay; },
     bark(pitch) { if (enabled) bark(pitch); },
     growl(seconds) { if (enabled) growl(seconds); },
     on() {

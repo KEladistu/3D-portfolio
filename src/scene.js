@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import gsap from 'gsap';
 import { createDog, createPack, stepPack } from './dogs.js';
+import { themeAt } from './themes.js';
 
 const HOME = { pos: [13, 7.5, 15], target: [0, 1.2, 0] };
 // The cabin interior lives far away from the clearing; we teleport the camera there.
@@ -40,7 +41,8 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
   renderer.toneMappingExposure = 1.1;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x2a2c3d, 18, 55);
+  const fog = new THREE.Fog(0x2a2c3d, 18, 55);
+  scene.fog = fog;
 
   const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 300);
   camera.position.fromArray(HOME.pos);
@@ -78,9 +80,13 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
     sp.push(v.x, v.y, v.z);
   }
   starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
-  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xfff6e0, size: 0.6, sizeAttenuation: true, fog: false, transparent: true, opacity: 0.8 })));
+  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xfff6e0, size: 0.6, sizeAttenuation: true, fog: false, transparent: true, opacity: 0.8 }));
+  scene.add(stars);
 
-  const moon = mesh(new THREE.SphereGeometry(3, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff1d0, fog: false }), -50, 45, -90);
+  const moon = mesh(new THREE.SphereGeometry(3, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff1d0, fog: false, transparent: true }), -50, 45, -90);
+  const sunDisc = mesh(new THREE.SphereGeometry(5, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff3d6, fog: false, transparent: true, opacity: 0 }), 75, 60, 40);
+  sunDisc.visible = false;
+  scene.add(sunDisc);
   scene.add(moon);
 
   // ── Lights ────────────────────────────────────────────────────
@@ -195,17 +201,23 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
   hotspot('golliath', 'Golliath', dogs[0].model.group, 0.95, dogView(dogs[0].model));
   hotspot('blk', 'Blk', dogs[1].model.group, 0.95, dogView(dogs[1].model));
 
+  // Indoors the brothers sleep by the fire at night and sit up awake in the morning.
   const sleepy = buildPoodle();
-  sleepy.lieDown();
-  sleepy.group.position.set(-0.7, 0, -1.6);
-  sleepy.group.rotation.y = 0.9;
-  room.group.add(sleepy.group);
   const sleepyBlk = buildPoodle(COATS.blk);
-  sleepyBlk.lieDown();
-  sleepyBlk.group.position.set(-0.05, 0, -1.95);
-  sleepyBlk.group.rotation.y = -2.3; // curled up nose-to-nose with his brother
-  room.group.add(sleepyBlk.group);
-  mergeStatic(room.group, [room.chair, room.shelf, room.fireplace, room.painting, sleepy.group, sleepyBlk.group]);
+  const INDOOR_POSES = {
+    sleep: [[sleepy, -0.7, -1.6, 0.9], [sleepyBlk, -0.05, -1.95, -2.3]], // curled up nose-to-nose
+    sit: [[sleepy, -0.85, -1.45, 0.35], [sleepyBlk, -0.15, -1.6, -0.15]], // facing the room
+  };
+  function poseIndoorDogs(pose) {
+    for (const [dog, x, z, rot] of INDOOR_POSES[pose]) {
+      dog.setPose(pose);
+      dog.group.position.set(x, 0, z);
+      dog.group.rotation.y = rot;
+    }
+  }
+  poseIndoorDogs('sleep');
+  room.group.add(sleepy.group, sleepyBlk.group);
+  mergeStatic(room.group, [room.chair, room.shelf, room.fireplace, room.painting, room.window, sleepy.group, sleepyBlk.group]);
 
   const trees = [];
   const avoid = [[0, 0, 5.5], [4.6, 4.2, 2], [5.6, -2.4, 2.4], [-3.6, 4.6, 1.5], [1, 7, 2.5], [0, 10, 3]];
@@ -398,9 +410,7 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
     camera.position.set(home.pos[0] + back[0], home.pos[1] + back[1], home.pos[2] + back[2]);
     controls.target.set(home.target[0] + back[0], home.target[1] + back[1], home.target[2] + back[2]);
     flyTo(home, 0, 1.4);
-    moonLight.intensity = inRoom ? 0 : 1.1;
-    hemi.intensity = inRoom ? 0.35 : 0.9;
-    hemi.color.setHex(inRoom ? 0xffd2a0 : 0x8090c0);
+    applyTheme();
     controls.update();
   }
 
@@ -432,6 +442,51 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
     }
   }
 
+
+  // ── Day / night ──────────────────────────────────────────────
+  // One number (theme.mix: 0 night → 1 morning) drives everything; gsap tweens it, applyTheme() reads it.
+  const theme = { mix: 0, tween: null, pose: 'sleep' };
+  const tc = new THREE.Color();
+  function applyTheme() {
+    const T = themeAt(theme.mix);
+    const u = sky.material.uniforms;
+    u.top.value.setHex(T.skyTop);
+    u.mid.value.setHex(T.skyMid);
+    u.low.value.setHex(T.skyLow);
+    fog.color.setHex(T.fog);
+    fog.near = T.fogNear;
+    fog.far = T.fogFar;
+    renderer.toneMappingExposure = T.exposure;
+    const inRoom = area === 'inside';
+    // sky objects: only drawn outdoors, and only while their theme is (partly) showing
+    stars.material.opacity = T.stars;
+    stars.visible = !inRoom && T.stars > 0.01;
+    moon.material.opacity = T.moon;
+    moon.visible = !inRoom && T.moon > 0.01;
+    sunDisc.material.opacity = T.sunDisc;
+    sunDisc.visible = !inRoom && T.sunDisc > 0.01;
+    fireflies.visible = !inRoom && T.fireflies > 0.01;
+    room.windowGlass.color.setHex(T.windowGlass);
+    room.windowMoon.visible = T.moon > 0.5;
+    moonLight.color.setHex(T.sun);
+    moonLight.intensity = inRoom ? 0 : T.sunIntensity;
+    moonLight.position.set(T.sunX, T.sunY, T.sunZ);
+    hemi.color.setHex(inRoom ? T.hemiInsideColor : T.hemiSky);
+    hemi.groundColor.setHex(T.hemiGround);
+    hemi.intensity = inRoom ? T.hemiInside : T.hemi;
+    const pose = theme.mix > 0.5 ? 'sit' : 'sleep';
+    if (pose !== theme.pose) { theme.pose = pose; poseIndoorDogs(pose); }
+    tc.setHex(T.skyTop); // keep the canvas clear color in step (visible for a frame on resize)
+    renderer.setClearColor(tc);
+  }
+
+  /** @param {'night' | 'day'} name @param {boolean} [instant] */
+  function setTheme(name, instant = false) {
+    const target = name === 'day' ? 1 : 0;
+    theme.tween?.kill();
+    if (instant) { theme.mix = target; applyTheme(); return; }
+    theme.tween = gsap.to(theme, { mix: target, duration: 2, ease: 'power2.inOut', onUpdate: applyTheme });
+  }
 
   // ── Loop ──────────────────────────────────────────────────────
   const clock = new THREE.Clock();
@@ -473,7 +528,7 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
       sleepy.body.scale.y = 1 + Math.sin(t * 1.6) * 0.03;
       sleepyBlk.body.scale.y = 1 + Math.sin(t * 1.4 + 1) * 0.03;
     } else {
-      fire.light.intensity = 9 * f;
+      fire.light.intensity = 9 * f * themeAt(theme.mix).campfire;
       fire.flames.forEach((fl, i) => {
         fl.scale.y = fl.userData.s * (0.85 + Math.sin(t * (9 + i * 2) + i) * 0.18);
         fl.rotation.y += dt * (1 + i);
@@ -502,7 +557,7 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
       });
       ffGeo.attributes.position.needsUpdate = true;
       updateDogs(dt, t);
-      fireflies.material.opacity = 0.7 + Math.sin(t * 2) * 0.3;
+      fireflies.material.opacity = (0.7 + Math.sin(t * 2) * 0.3) * (1 - theme.mix);
     }
 
     // gentle "breathing" parallax while focused so the close-up doesn't feel frozen
@@ -526,7 +581,7 @@ export function createScene(canvas, { onPick, onDogs = (_event) => {} }) {
 
   camera.position.fromArray(outsideHome().pos);
   tick();
-  return { focus, setArea, approach, hotspots, labelPositions, get area() { return area; } };
+  return { focus, setArea, setTheme, approach, hotspots, labelPositions, get area() { return area; } };
 }
 
 // Merge every static, untextured, opaque mesh under `root` into one mesh per material look.
@@ -827,8 +882,9 @@ function buildRoom() {
 
   // window on the left wall, night outside + curtains
   const win = new THREE.Group();
-  win.add(mesh(new THREE.PlaneGeometry(1.3, 1), new THREE.MeshBasicMaterial({ color: 0x1d2a44 })));
-  win.add(mesh(new THREE.CircleGeometry(0.08, 12), new THREE.MeshBasicMaterial({ color: 0xfff1d0 }), 0.35, 0.25, 0.01));
+  const windowGlass = new THREE.MeshBasicMaterial({ color: 0x1d2a44 });
+  const windowMoon = mesh(new THREE.CircleGeometry(0.08, 12), new THREE.MeshBasicMaterial({ color: 0xfff1d0 }), 0.35, 0.25, 0.01);
+  win.add(mesh(new THREE.PlaneGeometry(1.3, 1), windowGlass), windowMoon);
   const frame = std(0x3b2619);
   [[0, 0.53, 1.45, 0.08], [0, -0.53, 1.45, 0.08], [0, 0, 0.06, 1], [0, 0, 1.45, 0.05]].forEach(([x, y, w, h]) => win.add(mesh(new THREE.BoxGeometry(w, h, 0.08), frame, x, y, 0.03)));
   for (const s of [-1, 1]) win.add(mesh(new THREE.BoxGeometry(0.35, 1.4, 0.06), std(0x8e3b2f), s * 0.85, -0.05, 0.1));
@@ -949,7 +1005,7 @@ function buildRoom() {
   group.add(mesh(new THREE.BoxGeometry(0.16, 0.7, 0.05), std(0x3f5e4a), 2.4, 1.55, D / 2 - 0.25));
   group.add(mesh(new THREE.BoxGeometry(1, 2, 0.1), std(0x5a3a26), 0.8, 1, D / 2 - 0.2));
 
-  return { group, chair, shelf, fireplace, painting, flames, candles, light };
+  return { group, chair, shelf, fireplace, painting, flames, candles, light, window: win, windowGlass, windowMoon };
 }
 
 function deerTexture() {
@@ -1066,16 +1122,23 @@ function buildPoodle(coat = COATS.apricot) {
 
   group.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = true; });
 
-  // curled up asleep: legs tucked, head resting low, eyes closed
-  function lieDown() {
-    eyesOpen.visible = false;
-    eyesShut.visible = true;
-    body.position.y = -0.18;
-    legs.forEach((l) => (l.rotation.x = Math.PI / 2.2));
-    head.position.set(0.08, 0.42, 0.24);
-    head.rotation.set(0.35, 0.5, 0);
-    tail.rotation.set(-1.2, 0, 0.6);
+  const headHome = head.position.clone();
+  /** 'stand' (walking), 'sleep' (curled up, eyes closed) or 'sit' (awake, sitting up) */
+  function setPose(pose) {
+    const sleep = pose === 'sleep', sit = pose === 'sit';
+    eyesOpen.visible = !sleep;
+    eyesShut.visible = sleep;
+    body.position.y = sleep ? -0.18 : sit ? -0.05 : 0;
+    body.rotation.x = sit ? -0.42 : 0; // sitting: rear down, chest up
+    legs.forEach((l, i) => {
+      const front = i < 2;
+      l.rotation.x = sleep ? Math.PI / 2.2 : sit ? (front ? 0.42 : -1.25) : 0;
+    });
+    head.position.copy(headHome);
+    if (sleep) head.position.set(0.08, 0.42, 0.24);
+    head.rotation.set(sleep ? 0.35 : sit ? 0.3 : 0, sleep ? 0.5 : 0, 0);
+    tail.rotation.set(sleep ? -1.2 : -0.5, 0, sleep ? 0.6 : 0);
   }
 
-  return { group, body, head, legs, tail, tongue, lieDown };
+  return { group, body, head, legs, tail, tongue, setPose };
 }

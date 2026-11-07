@@ -81,6 +81,8 @@ Before saying a task is done:
 - In-world labels are short plain words ("Explore", "Projects", "Contact"), not the object name.
 - Only the current area is rendered and animated (`scene.children` visibility is toggled in `setArea`); inside, the camera is a first-person look-around (target just in front of it).
 - Must work on mobile (≤640px: the panel becomes a bottom sheet).
+- Headless Chrome on Windows can't go narrower than ~500px: a `--window-size=390,…` screenshot is really a 500px layout cropped to 390. Don't "fix" things that only look cut off in those shots. Skip the loader for screenshots with a temporary `$('#loader').remove()` (revert it afterwards).
+- Theme-specific UI uses `body.day` (and `body.day:not(.inside)` for outdoor-only text colors).
 - 3D models from the web must be free to use (CC0 or CC-BY, with credit added to the README) and saved as `.glb` in `public/models/`.
 
 ## Deployment
@@ -98,12 +100,10 @@ Before saying a task is done:
 Check items off as they're completed.
 
 ### Day / night mode
-- [ ] Toggle button in the header (sun / moon icon).
-- [ ] **Light mode = morning:** soft blue-to-peach sky, warm sun as the directional light (shadows), brighter hemisphere light, light-blue fog, no stars/moon, a sun disc, windows and fire less dominant, fireflies hidden, birds instead of crickets in the audio.
-- [ ] **Dark mode = night** (current look).
-- [ ] Smoothly tween every value (sky uniforms, fog, light colors and intensities, exposure) with gsap over about 2s; don't snap.
-- [ ] Define all values in one `THEMES = { day, night }` object in `scene.js`. Expose `setTheme(name)`.
-- [ ] UI follows the theme (label and button colors). Remember the choice in `localStorage` and default to `prefers-color-scheme`.
+- [x] ☀/☾ toggle in the header. Night is the default; the choice is saved in `localStorage`; `?theme=day` / `?theme=night` in the URL overrides it for that visit.
+- [x] Morning: blue-to-peach sky, sun disc and sunlight (shadows), no stars/moon/fireflies, softer campfire, blue window inside, birds instead of crickets.
+- [x] Inside: the dogs sleep at night and sit up awake in the morning (`setPose` / `poseIndoorDogs`).
+- [x] All values live in `src/themes.js` (`THEMES`, unit-tested `themeAt(mix)`). `scene.setTheme()` tweens a single `mix` 0→1 over 2s and `applyTheme()` reads it, so nothing runs per frame once the tween ends.
 
 ### Scene & interaction
 - [x] Walk inside the cabin: cozy interior with armchair, bookshelf, fireplace and deer painting.
